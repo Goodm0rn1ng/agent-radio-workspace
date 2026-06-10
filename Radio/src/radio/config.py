@@ -92,7 +92,28 @@ class STTConfig(BaseModel):
     model: str = "whisper-large-v3"
     prompt: str = ""
     language: str = "ja"
-    segment_seconds: int = 120
+    segment_seconds: int = 300
+    # 切点对齐静音，避免固定时长硬切截断句子（「听不全」的主要来源）
+    silence_align: bool = True
+    # —— 幻听过滤（用 Whisper verbose_json 的置信信号）——
+    # 经典静音/音乐幻听判据：no_speech_prob 高 且 avg_logprob 低（OpenAI 同款规则）
+    filter_no_speech_max: float = 0.6
+    filter_logprob_min: float = -1.0
+    # 段内复读循环：压缩比超限即为重复轰炸
+    filter_compression_max: float = 2.4
+    # 空洞重听：首轮转写留下 ≥N 秒空白时，单独切出该段重转一次（防 Whisper
+    # 解码窗被幻听吃掉后整窗跳过造成的漏听）。音乐段被过滤产生的空洞会再次被过滤，无害。
+    gap_relisten: bool = True
+    gap_relisten_min_seconds: float = 25.0
+    # 已知幻听口癖（YouTube 结尾语等）：整段去掉标点后只剩这些短语的重复时，
+    # 在置信不高（no_speech_prob>0.2 或 avg_logprob<-0.45）的前提下丢弃
+    hallucination_phrases: list[str] = [
+        "ご視聴ありがとうございました",
+        "ご清聴ありがとうございました",
+        "チャンネル登録お願いします",
+        "チャンネル登録よろしくお願いします",
+        "字幕視聴ありがとうございました",
+    ]
 
 
 class TranslationConfig(BaseModel):

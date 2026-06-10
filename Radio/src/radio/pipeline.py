@@ -85,12 +85,16 @@ async def run_pipeline(
                 audio_path,
                 work_dir / "segments",
                 segment_seconds=settings.stt.segment_seconds,
+                silence_align=settings.stt.silence_align,
             )
 
         # 2. 转写（日文，带时间戳）
         with metrics.step("transcribe_segments"):
             ja_segments = await transcribe_segments(
-                slices, settings, program_display_name=program_name
+                slices,
+                settings,
+                program_display_name=program_name,
+                source_audio=audio_path,
             )
         if not ja_segments:
             metrics.add_error("转写结果为空")

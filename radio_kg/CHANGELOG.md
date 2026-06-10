@@ -2,6 +2,13 @@
 
 本项目所有功能性的完善与新增都记录于此。日期为开发日期 (YYYY-MM-DD)。
 
+## clip 节目方案支持 stt_prompt 覆盖 — 2026-06-10
+
+- **Added**：`clip/programs/<id>.yaml` 的 `processing.stt_prompt` 可按节目替换全局 Whisper prompt；
+  `kb_ingest` 入库前应用。配合 Radio STT 链路的幻听/听不全治理（详见 Radio/CHANGELOG.md），
+  解决全局 prompt 中异节目人名（安野希世乃/悠木碧）被音乐段幻听成转写内容、污染图谱实体的问题
+  （minetsuki 各期 1-12 处 → 0）。`minetsuki_ritsu.yaml` 已配本节目专属 prompt。
+
 ## 工作区基建：唯一 venv + 移除 Docker + launchd 接管 — 2026-06-10
 
 - **Changed｜三 venv 合一（根治依赖漂移）**：新增根 `Agent/pyproject.toml`（uv workspace，成员 Radio/clip；radio_kg 依赖直接声明于根，chromadb/sentence-transformers/torch/langgraph/mcp 等锁定现装版本保证数据兼容）。Radio 与 clip 以 editable 包装进唯一 venv `Agent/.venv`；删除 `Radio/.venv`(367M)、`radio_kg/.venv`(1.0G)、`radio_kg/requirements.txt`、`Radio/uv.lock`。今后装依赖只有一条命令：`cd Agent && uv sync`。

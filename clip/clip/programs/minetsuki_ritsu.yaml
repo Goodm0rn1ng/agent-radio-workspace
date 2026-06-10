@@ -30,6 +30,9 @@ processing:
   translate_to: zh        # 译文：简体中文
   translation_prompt_path: minetsuki_ritsu_translate.txt
   stream_types: [歌枠(アニソン), 雑談, 作業用BGM, ゲーム]
+  # 覆盖全局 STT prompt：只注入本节目人名/术语。
+  # （全局 prompt 里的「安野希世乃、悠木碧」曾在歌枠音乐段被 Whisper 幻听成转写内容）
+  stt_prompt: "VTuber、歌枠、配信、峰月律、りっちゃん、夢限大みゅーたいぷ、BanG Dream"
 
   # KG 主持人身份：驱动 radio_kg 实体抽取的第一人称(私/僕)与昵称归一，
   # 避免把本人发言错挂到默认主持人「羊宮妃那」。名字统一为「峰月律」。

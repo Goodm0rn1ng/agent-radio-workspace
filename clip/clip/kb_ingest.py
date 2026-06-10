@@ -50,12 +50,16 @@ def _settings_with_profile_translation(settings, profile, work_dir: Path):
     if terminology_path is not None:
         translation_updates["terminology_path"] = terminology_path
 
-    return settings.model_copy(
-        update={
-            "name_corrections": merged_corrections,
-            "translation": settings.translation.model_copy(update=translation_updates),
-        }
-    )
+    updates = {
+        "name_corrections": merged_corrections,
+        "translation": settings.translation.model_copy(update=translation_updates),
+    }
+    # 节目自带 STT prompt：替换全局 prompt（防止其他节目的人名被 Whisper 在音乐段幻听出来）
+    stt_prompt = getattr(profile, "stt_prompt", "") or ""
+    if stt_prompt.strip():
+        updates["stt"] = settings.stt.model_copy(update={"prompt": stt_prompt.strip()})
+
+    return settings.model_copy(update=updates)
 
 
 def _write_profile_terminology(settings, profile, work_dir: Path) -> Path | None:

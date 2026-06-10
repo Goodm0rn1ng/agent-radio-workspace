@@ -32,8 +32,14 @@ stt:
   # 用日语写效果最好
   prompt: "声優、ラジオ、ライブ、安野希世乃、悠木碧"
   language: "ja"
-  # 音频切片长度（秒）。YouTube 抽出的音频码率可能较高，短切片可降低 Groq 上传超时概率。
-  segment_seconds: 120
+  # 音频切片长度（秒）。切点对齐静音（silence_align），避免硬切截断句子（听不全）。
+  segment_seconds: 300
+  silence_align: true
+  # 幻听过滤（Whisper verbose_json 置信信号）：no_speech+logprob / 压缩比 /
+  # 已知短语黑名单三道闸，默认阈值见 STTConfig，可在此覆盖：
+  # filter_no_speech_max: 0.6
+  # filter_logprob_min: -1.0
+  # filter_compression_max: 2.4
 
 translation:
   # 日常批量翻译走 DeepSeek；精细翻译可用 CLI 参数切到 Claude Haiku。

@@ -31,6 +31,7 @@ class ProgramProfile:
     # processing
     language: str = "ja"
     translate_to: str = "zh"
+    stt_prompt: str = ""          # 覆盖全局 STT prompt（注入本节目人名/术语，防异节目人名幻听）
     translation_prompt_path: Path | None = None
     summary_style: str = ""
     viral_focus: str = ""
@@ -76,6 +77,7 @@ def load_profile(program_id: str) -> ProgramProfile:
         accent_color=data.get("accent_color", ""),
         language=proc.get("language", "ja"),
         translate_to=proc.get("translate_to", "zh"),
+        stt_prompt=proc.get("stt_prompt", ""),
         translation_prompt_path=_resolve_program_path(
             proc.get("translation_prompt_path"), fpath.parent
         ),
