@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>广播音频知识管理 · 主页</title>
+<style>
+  :root { --bg:#f3f7f3; --card:#fff; --line:#dfe7df; --accent:#5b9a6f; --ink:#243; --mut:#789; }
+  body { margin:0; font:15px/1.6 -apple-system,"PingFang SC",sans-serif; background:var(--bg); color:var(--ink);
+         min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  h1 { font-weight:700; margin:0 0 6px; }
+  .sub { color:var(--mut); margin-bottom:34px; }
+  .cards { display:flex; gap:22px; flex-wrap:wrap; justify-content:center; max-width:920px; padding:0 16px; }
+  a.card { display:block; width:260px; background:var(--card); border:1px solid var(--line); border-radius:16px;
+           padding:26px 22px; text-decoration:none; color:var(--ink); transition:.15s; }
+  a.card:hover { transform:translateY(-3px); box-shadow:0 8px 24px rgba(60,110,80,.12); border-color:var(--accent); }
+  .ico { font-size:34px; }
+  .card h2 { margin:12px 0 6px; font-size:18px; }
+  .card p { margin:0; color:var(--mut); font-size:13px; }
+</style>
+</head>
+<body>
+  <h1>广播音频深度知识管理</h1>
+  <div class="sub">选择一个入口</div>
+  <div class="cards">
+    <a class="card" href="/chat">
+      <div class="ico">💬</div><h2>对话</h2>
+      <p>知识图谱问答 / 来信模式 / 自进化记忆</p>
+    </a>
+    <a class="card" href="/radio">
+      <div class="ico">🎙️</div><h2>Radio 录制</h2>
+      <p>广播录制 · 转写 · 翻译 · 摘要 · 入库</p>
+    </a>
+    <a class="card" href="/clipper">
+      <div class="ico">🎬</div><h2>直播录制和切片</h2>
+      <p>VTuber 直播下载 · 爆火分析 · 自动切片 · Telegram 联动</p>
+    </a>
+  </div>
+</body>
+</html>

@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+dist/
+build/
+
+# uv
+.uv/
+
+# Secrets and local config
+.env
+.env.local
+.env.*.local
+# 浏览器导出的 cookies（用于 Radiko 反爬绕过；含 session token）
+radiko_cookies*.json
+cookies*.json
+
+# Runtime data
+data/recordings/*
+data/logs/*
+data/history_context.jsonl
+data/pending_segments.json
+data/qa/
+data/scheduler.sqlite*
+data/state.sqlite*
+!data/recordings/.gitkeep
+!data/logs/.gitkeep
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Claude Code local settings
+.claude/

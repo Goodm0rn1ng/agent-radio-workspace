@@ -1,0 +1,8 @@
+id: hina_radio
+name: 羊宮妃那广播
+description: 羊宮妃那个人广播或相关声优节目专用 prompt。
+terminology_path: config/terminology.yaml
+translation_prompt_path: translate.txt
+summary_prompt_path: summarize.txt
+segments_library_path: config/segments_library.yaml
+stt_prompt: 声優、ラジオ、羊宮妃那、羊宮、ひな、Hina

@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>广播处理控制台</title>
+    <link rel="stylesheet" href="assets/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <a href="/" style="font-size:12px;color:#789;text-decoration:none">← 主页</a>
+          <p class="eyebrow">Radio Oshikatsu</p>
+          <h1>广播处理控制台</h1>
+        </div>
+        <div class="connection">
+          <span id="socketDot" class="status-dot"></span>
+          <span id="socketState">未连接</span>
+        </div>
+      </header>
+
+      <details class="credentials" id="credentialsPanel">
+        <summary>
+          <span>服务密钥状态</span>
+          <span class="credential-summary" id="credentialSummary">0 项已配置</span>
+        </summary>
+        <div id="credentialList" class="credential-grid credential-status-grid"></div>
+        <p class="credential-note">
+          密钥只显示是否已配置；如需修改，请编辑 <code>.env</code> 或环境变量后重启 API 服务。
+        </p>
+      </details>
+
+      <details class="profiles-panel" id="profilesPanel" open>
+        <summary>
+          <span>节目处理方案</span>
+          <span class="credential-summary" id="profileSummary">0 个方案</span>
+        </summary>
+        <div class="profile-manager">
+          <div class="profile-list" id="profileList"></div>
+          <form id="profileForm" class="profile-form">
+            <div class="profile-grid">
+              <label>
+                <span>方案 ID</span>
+                <input id="profileId" type="text" placeholder="new_radio" />
+              </label>
+              <label>
+                <span>方案名称</span>
+                <input id="profileName" type="text" placeholder="XX 广播" />
+              </label>
+              <label>
+                <span>术语表路径</span>
+                <input id="profileTerminologyPath" type="text" placeholder="config/terminology.yaml" />
+              </label>
+            </div>
+            <label class="stack">
+              <span>说明</span>
+              <input id="profileDescription" type="text" placeholder="适合哪档节目、哪种翻译风格" />
+            </label>
+            <label class="stack">
+              <span>翻译提示词</span>
+              <textarea id="profileTranslationPrompt" rows="7" spellcheck="false"></textarea>
+            </label>
+            <label class="stack">
+              <span>总结提示词</span>
+              <textarea id="profileSummaryPrompt" rows="7" spellcheck="false"></textarea>
+            </label>
+            <div class="submit-row">
+              <button type="submit" class="button primary">保存方案</button>
+            </div>
+          </form>
+        </div>
+      </details>
+
+      <details class="knowledge-panel" id="knowledgePanel" open>
+        <summary>
+          <span>节目知识库</span>
+          <span class="credential-summary" id="knowledgeSummary">0 条待确认 · 0 条已收录</span>
+        </summary>
+        <div class="knowledge-grid">
+          <section class="knowledge-column">
+            <div class="subhead">
+              <h3>待确认环节</h3>
+              <button type="button" class="button compact" id="refreshKnowledge">刷新</button>
+            </div>
+            <div id="pendingSegments" class="knowledge-list"></div>
+          </section>
+          <section class="knowledge-column">
+            <div class="subhead">
+              <h3>已收录环节</h3>
+              <input id="librarySearch" type="search" placeholder="搜索节目或环节" />
+            </div>
+            <div id="librarySegments" class="knowledge-list library-list"></div>
+          </section>
+        </div>
+      </details>
+
+      <section class="overview-panel" aria-label="运行概览">
+        <div class="overview-grid">
+          <article class="panel compact-panel">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">运行指标</p>
+                <h2>最近处理记录</h2>
+              </div>
+              <span id="metricsSummary" class="pill">暂无记录</span>
+            </div>
+            <div id="metricsCards" class="metric-grid"></div>
+          </article>
+          <article class="panel compact-panel">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">长期定时运行</p>
+                <h2>自动录制计划</h2>
+              </div>
+              <span id="schedulerSummary" class="pill">0 个计划</span>
+            </div>
+            <div id="scheduleList" class="schedule-list"></div>
+            <form id="scheduleForm" class="schedule-form">
+              <div class="schedule-form-grid">
+                <label>
+                  <span>节目名称</span>
+                  <input id="scheduleName" type="text" placeholder="例如 文化放送 QRR 00:30" />
+                </label>
+                <label>
+                  <span>来源类型</span>
+                  <select id="scheduleSourceType">
+                    <option value="radiko_live">Radiko 实时录制</option>
+                    <option value="radiko_timefree">Radiko 回听录制</option>
+                    <option value="youtube_live">YouTube 直播录制</option>
+                  </select>
+                </label>
+              </div>
+              <label class="stack">
+                <span>来源链接</span>
+                <input
+                  id="scheduleSourceUrl"
+                  type="text"
+                  placeholder="Radiko 实时/回听链接，或 YouTube 直播链接"
+                />
+              </label>
+              <label class="stack">
+                <span>提示词方案</span>
+                <select id="scheduleProfile"></select>
+              </label>
+              <div class="schedule-form-grid compact">
+                <label>
+                  <span>星期</span>
+                  <select id="scheduleDay">
+                    <option value="mon">周一</option>
+                    <option value="tue">周二</option>
+                    <option value="wed">周三</option>
+                    <option value="thu">周四</option>
+                    <option value="fri">周五</option>
+                    <option value="sat">周六</option>
+                    <option value="sun">周日</option>
+                  </select>
+                </label>
+                <label>
+                  <span>时间</span>
+                  <input id="scheduleTime" type="time" value="00:30" />
+                </label>
+                <label>
+                  <span>时长</span>
+                  <input id="scheduleDuration" type="number" min="1" value="30" />
+                </label>
+              </div>
+              <div class="option-row">
+                <label class="switch-row">
+                  <input id="scheduleEnabled" type="checkbox" checked />
+                  <span class="switch"></span>
+                  <span>创建后启用</span>
+                </label>
+                <label class="switch-row">
+                  <input id="scheduleFineTranslation" type="checkbox" />
+                  <span class="switch"></span>
+                  <span>精细翻译</span>
+                </label>
+              </div>
+              <div class="submit-row">
+                <button type="submit" class="button primary">创建定时计划</button>
+              </div>
+            </form>
+          </article>
+        </div>
+      </section>
+
+      <main class="workspace">
+        <section class="panel submission-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">新建任务</p>
+              <h2>选择来源</h2>
+            </div>
+            <div class="tabs source-tabs" role="tablist" aria-label="任务来源">
+              <button class="tab active" type="button" data-tab="video">视频</button>
+              <button class="tab" type="button" data-tab="youtube">YouTube 直播</button>
+              <button class="tab" type="button" data-tab="radiko">Radiko</button>
+            </div>
+          </div>
+
+          <form id="videoForm" class="tab-panel active">
+            <label class="stack">
+              <span>节目处理方案</span>
+              <select id="videoProfile"></select>
+            </label>
+            <label class="stack">
+              <span>归档合集</span>
+              <select id="videoCollection"></select>
+            </label>
+            <label class="stack" id="videoCollectionCustomRow" hidden>
+              <span>新合集 ID</span>
+              <input id="videoCollectionCustom" type="text" placeholder="hina_radio" />
+            </label>
+            <label class="stack">
+              <span>视频链接列表</span>
+              <textarea
+                id="videoUrls"
+                rows="8"
+                spellcheck="false"
+                placeholder="每行一个视频链接，例如 https://www.youtube.com/watch?v=..."
+              ></textarea>
+            </label>
+
+            <div class="option-row">
+              <label class="switch-row">
+                <input id="playlistToggle" type="checkbox" />
+                <span class="switch"></span>
+                <span>按播放列表范围处理</span>
+              </label>
+              <label class="switch-row">
+                <input id="videoFineTranslation" type="checkbox" />
+                <span class="switch"></span>
+                <span>精细翻译</span>
+              </label>
+              <label class="switch-row">
+                <input id="videoKeepAudio" type="checkbox" />
+                <span class="switch"></span>
+                <span>保留音频文件</span>
+              </label>
+            </div>
+
+            <div class="playlist-fields" id="playlistFields" hidden>
+              <label>
+                <span>起始集数</span>
+                <input id="playlistStart" type="number" min="1" value="178" />
+              </label>
+              <label>
+                <span>结束集数</span>
+                <input id="playlistEnd" type="number" min="1" value="1" />
+              </label>
+              <label>
+                <span>标题模板</span>
+                <input id="titleTemplate" type="text" value="{title}" />
+              </label>
+            </div>
+            <div class="playlist-preview" id="playlistPreview" hidden></div>
+
+            <div class="submit-row">
+              <button type="button" class="button secondary" id="previewPlaylist">预览列表</button>
+              <button type="submit" class="button primary">开始处理</button>
+            </div>
+          </form>
+
+          <form id="youtubeForm" class="tab-panel">
+            <label class="stack">
+              <span>节目处理方案</span>
+              <select id="youtubeProfile"></select>
+            </label>
+            <label class="stack">
+              <span>归档合集</span>
+              <select id="youtubeCollection"></select>
+            </label>
+            <label class="stack" id="youtubeCollectionCustomRow" hidden>
+              <span>新合集 ID</span>
+              <input id="youtubeCollectionCustom" type="text" placeholder="hina_radio" />
+            </label>
+            <label class="stack">
+              <span>YouTube 直播链接</span>
+              <input id="youtubeUrl" type="url" placeholder="https://www.youtube.com/@example/live" />
+            </label>
+            <div class="live-grid">
+              <label>
+                <span>预计开始时间</span>
+                <input id="youtubeStart" type="datetime-local" />
+              </label>
+              <label>
+                <span>节目标题</span>
+                <input id="youtubeTitle" type="text" placeholder="可留空，自动使用直播标题" />
+              </label>
+            </div>
+            <div class="duration-block">
+              <div>
+                <span>录制时长</span>
+                <strong><output id="youtubeDurationOutput">60</output> 分钟</strong>
+              </div>
+              <input id="youtubeDurationRange" type="range" min="5" max="240" step="5" value="60" />
+              <input id="youtubeDurationInput" type="number" min="1" value="60" />
+            </div>
+            <div class="option-row">
+              <label class="switch-row">
+                <input id="youtubeFineTranslation" type="checkbox" />
+                <span class="switch"></span>
+                <span>精细翻译</span>
+              </label>
+              <label class="switch-row">
+                <input id="youtubeKeepAudio" type="checkbox" />
+                <span class="switch"></span>
+                <span>保留音频文件</span>
+              </label>
+            </div>
+            <div class="live-grid compact">
+              <label>
+                <span>开播等待上限（分钟）</span>
+                <input id="youtubeDetectionTimeout" type="number" min="0" value="30" />
+              </label>
+              <label>
+                <span>检查间隔（秒）</span>
+                <input id="youtubeDetectionInterval" type="number" min="5" value="60" />
+              </label>
+            </div>
+            <div class="submit-row">
+              <button type="submit" class="button primary">预约录制</button>
+            </div>
+          </form>
+
+          <form id="radikoForm" class="tab-panel">
+            <label class="stack">
+              <span>节目处理方案</span>
+              <select id="radikoProfile"></select>
+            </label>
+            <label class="stack">
+              <span>归档合集</span>
+              <select id="radikoCollection"></select>
+            </label>
+            <label class="stack" id="radikoCollectionCustomRow" hidden>
+              <span>新合集 ID</span>
+              <input id="radikoCollectionCustom" type="text" placeholder="hina_radio" />
+            </label>
+            <label class="stack">
+              <span>处理方式</span>
+              <select id="radikoMode">
+                <option value="live">实时录制：到指定时间后开始</option>
+                <option value="timefree">回听处理：立即下载 time-free</option>
+              </select>
+            </label>
+            <label class="stack">
+              <span>Radiko 链接</span>
+              <input
+                id="radikoUrl"
+                type="url"
+                placeholder="https://radiko.jp/#!/live/QRR"
+              />
+            </label>
+            <p class="form-note" id="radikoModeNote">
+              实时录制只接受 /live/ 链接，会先等待指定时间，再开始录制和后续处理。
+            </p>
+            <div class="live-grid">
+              <label id="radikoStartRow">
+                <span>实时录制开始时间</span>
+                <input id="radikoStart" type="datetime-local" />
+              </label>
+              <label>
+                <span>节目标题</span>
+                <input id="radikoTitle" type="text" placeholder="可留空，自动生成标题" />
+              </label>
+            </div>
+            <div class="duration-block">
+              <div>
+                <span>录制时长</span>
+                <strong><output id="radikoDurationOutput">30</output> 分钟</strong>
+              </div>
+              <input id="radikoDurationRange" type="range" min="5" max="240" step="5" value="30" />
+              <input id="radikoDurationInput" type="number" min="1" value="30" />
+            </div>
+            <div class="option-row">
+              <label class="switch-row">
+                <input id="radikoFineTranslation" type="checkbox" />
+                <span class="switch"></span>
+                <span>精细翻译</span>
+              </label>
+              <label class="switch-row">
+                <input id="radikoKeepAudio" type="checkbox" />
+                <span class="switch"></span>
+                <span>保留音频文件</span>
+              </label>
+            </div>
+            <div class="submit-row">
+              <button type="submit" class="button primary">开始 Radiko 处理</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="panel queue-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">任务看板</p>
+              <h2>处理进度</h2>
+            </div>
+            <span id="jobCount" class="pill">0 个任务</span>
+          </div>
+          <div class="job-toolbar">
+            <label>
+              <span>状态</span>
+              <select id="jobStatusFilter">
+                <option value="all">全部任务</option>
+                <option value="active">进行中</option>
+                <option value="succeeded">已完成</option>
+                <option value="failed">失败</option>
+                <option value="canceled">已取消</option>
+              </select>
+            </label>
+            <label>
+              <span>搜索</span>
+              <input id="jobSearch" type="search" placeholder="标题、方案、合集、链接" />
+            </label>
+          </div>
+          <div class="stage-rail">
+            <span>排队</span>
+            <span>获取音频</span>
+            <span>转写</span>
+            <span>总结</span>
+            <span>已推送</span>
+          </div>
+          <div id="jobsList" class="jobs-list"></div>
+        </section>
+      </main>
+    </div>
+
+    <aside class="drawer" id="jobDrawer" aria-hidden="true">
+      <div class="drawer-head">
+        <div>
+          <p class="eyebrow">任务详情</p>
+          <h2 id="drawerTitle">未选择任务</h2>
+        </div>
+        <button id="closeDrawer" class="icon-button" type="button" aria-label="关闭">×</button>
+      </div>
+      <div id="drawerBody" class="drawer-body"></div>
+    </aside>
+
+    <div id="toast" class="toast" role="status"></div>
+    <script src="assets/app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,181 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# 节目处理方案 + 归档方案：峰月律 (Minetsuki Ritsu) / 夢限大みゅーたいぷ
+# 用于 clipper Branch B（new）总结该 VTuber 的 YouTube 直播。
+# 独立于现有 羊宮妃那 节目，不影响其配置。
+# ─────────────────────────────────────────────────────────────────────────────
+program_id: minetsuki_ritsu
+display_name: 夢限大みゅーたいぷ 峰月律
+performer: 峰月律（みねつき りつ / Minetsuki Ritsu）
+band: 夢限大みゅーたいぷ（Mugendai Mewtype / Yumemita）
+channel_url: https://www.youtube.com/@ritsu_yumemita
+channel_id: UCxc0MrPoACKTFlV24GqX2sg
+# 峰月律 应援色（用户指定）：字幕中文行用此色
+accent_color: "#4477CC"
+
+# ── 角色调研摘要（人设 / 直播风格）──────────────────────────────────────────
+profile_notes: |
+  峰月律是 BanG Dream! 虚拟乐队「夢限大みゅーたいぷ」的吉他/节奏吉他担当（VTuber，Live2D）。
+  官方定位是认真、素直的优等生，冷静支撑乐队音乐；但也会做出超出大家预想的举动，
+  食欲是成员中数一数二的「夢限大」。频道简介强调她喜欢吃、オカルトホラー和唱歌。
+  她也有ポンコツ可爱、害羞、碎碎念、认真告知和突然高能的直播语气。
+  成员色 PONKOTSU BLUE。生日 2/7，身高 157cm。招牌问候「やほ」。
+  直播 tag #見守律，绘图 tag #りつみて，粉丝名「りっちゃんズ」，推しマ「🐻🎸」。
+  直播类型以「歌枠（アニソン为主）」「雑談」「作業用BGM」「ゲーム」「企划/活动告知」为主。
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 【节目处理方案】processing —— STT/翻译/总结/二次创作的口径
+# ═════════════════════════════════════════════════════════════════════════════
+processing:
+  language: ja            # 源语言：日文
+  translate_to: zh        # 译文：简体中文
+  translation_prompt_path: minetsuki_ritsu_translate.txt
+  stream_types: [歌枠(アニソン), 雑談, 作業用BGM, ゲーム]
+
+  # KG 主持人身份：驱动 radio_kg 实体抽取的第一人称(私/僕)与昵称归一，
+  # 避免把本人发言错挂到默认主持人「羊宮妃那」。名字统一为「峰月律」。
+  # 注：早前曾误记为「立石凛」/「峰乐律」，均纠正为「峰月律」。
+  host:
+    canonical: 峰月律
+    type: Person
+    aliases: [りつ, 律, 峰月, みねつき, りっちゃん, りっちゃ, Minetsuki Ritsu]
+
+  # 总结侧重（喂给二次创作/标题/文案；也作为人读指引）
+  summary_style: |
+    以「ポンコツ可爱 + 多才创作者」的语气总结。重点抓取：
+    1) 歌枠曲目 setlist（曲名/原作动画，日文原名优先）；
+    2) 雑談话题与名场面（ポンコツ瞬间、与粉丝「見守り」互动）；
+    3) 与乐队/同伴相关的提及；
+    4) 招牌问候「やほ」与情绪节点。
+
+  # 爆火因素侧重（clipper Branch B 判断片段潜力时参考）
+  viral_focus: |
+    歌枠翻唱的アニソン是否命中当前 B 站热门歌曲/热番；ポンコツ名场面；高能演唱段落。
+
+  # 专名纠正：对 ja+zh 双语做 str.replace（修 ASR/翻译把生僻专名听/译错）。
+  # 运行时并入 Radio settings.name_corrections，不改 Radio 配置文件。
+  name_corrections:
+    みねつきりつ: 峰月律
+    ミネツキリツ: 峰月律
+    みねつき律: 峰月律
+    峯月律: 峰月律
+    峯月 律: 峰月律
+    峰月凛: 峰月律
+    峰乐律: 峰月律                              # 早前误记，纠正
+    凛酱: 律酱                                  # りっちゃん 误译，纠正为 律酱
+    夢限大みゅーたいぷ: 夢限大みゅーたいぷ
+    無限大みゅーたいぷ: 夢限大みゅーたいぷ     # 常见误写（無/夢）
+    むげんだいみゅーたいぷ: 夢限大みゅーたいぷ
+    ムゲンダイミュータイプ: 夢限大みゅーたいぷ
+    Mugendai MyuType: Mugendai Mewtype
+    Mugendai Myuutype: Mugendai Mewtype
+    なかまちあられ: 仲町あられ
+    みやながののか: 宮永ののか
+    ふじみやこ: 藤都子
+    せんごくゆの: 千石ユノ
+
+  # 中文术语表：仅修中文译文，统一译名
+  terminology:
+    夢限大みゅーたいぷ: 夢限大Mewtype
+    Mugendai Mewtype: 夢限大Mewtype
+    Mugendai MewType: 夢限大Mewtype
+    Yumemita: 夢限大Mewtype
+    ゆめみた: 夢限大Mewtype（ゆめみた）
+    夢限大: 夢限大Mewtype
+    バンドリ: BanG Dream!
+    BanG Dream!: BanG Dream!
+    峰月律: 峰月律
+    峰月 律: 峰月律
+    Minetsuki Ritsu: 峰月律
+    Ritsu Minetsuki: 峰月律
+    りっちゃん: 律酱          
+    りっちゃ: 律酱
+    りっちゃんズ: 律酱民
+    りっちゃんず: 律酱民
+    見守律: "#見守律"
+    りつみて: "#りつみて"
+    りつの配信予定: "#りつの配信予定"
+    りっちゃんといっしょ: "#りっちゃんといっしょ"
+    りっちゃんといっしよ: "#りっちゃんといっしょ"
+    やほ: "やほ"
+    PONKOTSU BLUE: PONKOTSU BLUE
+    ポンコツ: 笨笨呆萌
+    オカルトホラー: 神秘恐怖/灵异恐怖
+    仲町あられ: 仲町阿拉蕾
+    あられ: 阿拉蕾
+    Arale Nakamachi: 仲町阿拉蕾
+    宮永ののか: 宫永乃乃香
+    ののか: 乃乃香
+    Nonoka Miyanaga: 宫永乃乃香
+    藤都子: 藤都子
+    都子: 都子
+    Miyako Fuji: 藤都子
+    千石ユノ: 千石由乃
+    ユノ: 由乃
+    Yuno Sengoku: 千石由乃
+    アニソン: 动画歌曲
+    歌枠: 歌回
+    雑談: 杂谈
+    作業用BGM: 工作/学习用BGM
+    ゲーム配信: 游戏直播
+    ライブ: Live
+    ワンマン: 单独公演
+    対バン: 联合演出/拼盘演出
+    47都道府県制覇の旅: 47都道府县制霸之旅
+    スーパーポジション: Superposition
+    ぷれぱれ〜しょん！: "ぷれぱれ〜しょん！"
+    めたもるふぉーぜ: "めたもるふぉーぜ"
+    ふりーてぃんぐ もーめんと: "ふりーてぃんぐ もーめんと"
+    アンロック・ザ・フューチャー: "Unlock the Future"
+    もぐもぐPON☆パジャマぱ〜てぃ: "もぐもぐPON☆パジャマぱ〜てぃ"
+    もぐもぐPON: "もぐもぐPON"
+    伊藤彩沙: 伊藤彩沙
+    プログレス サイン: "《プログレス サイン》"
+    超惑星Xへの旅: "《超惑星Xへの旅》"
+    Calling: "《Calling》"
+    夢現妄想世界: "《夢現妄想世界》"
+    コミュ着火Fire!: "《コミュ着火Fire!》"
+    コハク: "《コハク》"
+    ときめきレゾナンス: "《ときめきレゾナンス》"
+    Hi-Vision: "《Hi-Vision》"
+    テレパシー: "《テレパシー》"
+    エンプティパペット: "《エンプティパペット》"
+    Empty puppet: "《エンプティパペット》"
+    TRASH LIFE: "《TRASH LIFE》"
+    どんがらがっしゃん: "《どんがらがっしゃん》"
+    アイの夢限: "《アイの夢限》"
+    みゅーたんとミュータント: "《みゅーたんとミュータント》"
+    新人類は仮想世界の夢を見るか？: "《新人類は仮想世界の夢を見るか？》"
+    限界現実サバイブ天使: "《限界現実サバイブ天使》"
+    ビッグマウス: "《ビッグマウス》"
+    ✞animaるパーティ✞開催中✞: "《✞animaるパーティ✞開催中✞》"
+    ティアドロップス: "《ティアドロップス》"
+    決戦スピリット: "《決戦スピリット》"
+    唱: "《唱》"
+
+  # 乐队成员名册（KG 实体对齐 / 总结上下文）
+  members:
+    - { name: 仲町あられ, yomi: なかまち あられ, role: Vocal,       color: NAKAYOSHI YELLOW }
+    - { name: 宮永ののか, yomi: みやなが ののか, role: Lead Guitar,  color: NONOCHAN PINK }
+    - { name: 峰月律,     yomi: みねつき りつ,   role: Rhythm Guitar, color: PONKOTSU BLUE, self: true }
+    - { name: 藤都子,     yomi: ふじ みやこ,     role: Keyboard,     color: ANGEL PURPLE }
+    - { name: 千石ユノ,   yomi: せんごく ゆの,   role: DJ & Manipulator, color: TSUNDERE PINK }
+
+# ═════════════════════════════════════════════════════════════════════════════
+# 【归档方案】archiving —— 落盘布局 / 入库口径
+# ═════════════════════════════════════════════════════════════════════════════
+archiving:
+  collection_id: minetsuki_ritsu          # 归档到 RADIO_DATA_DIR/<collection_id>/
+  recordings_root: ../Radio/data/recordings
+  # 该集合直接复用现有 RADIO_DATA_DIR，故 radio_kg 检索/问答天然能消费。
+  episode_dir_template: "{date}_{label}"  # 例：2026-05-19_【歌枠】アニソンおんりー歌枠
+  # 无 #N 期号：episode_label 用「日期 + 直播标题」；broadcast_date 取 YouTube upload_date。
+  kg_program_name: 夢限大みゅーたいぷ 峰月律
+  auto_policy: confirm                     # 自动总结入库、无人工审查（in-graph 解决冲突/纠偏）
+  keep_source_video: true                  # 保留源视频，供后续按时间戳切片
+  auto_telegram: true                      # 上传/处理后自动推送 Telegram 切片菜单（点击即切片）
+  products:                                # 每期产物
+    - 03_ja_segments.json                  # 日文逐句（带时间戳）
+    - 04_bilingual_segments.json           # 中日双语逐句
+    - 05_summary.json                      # 结构化摘要
+    - source/<video>.mp4                   # 源视频（含画面）
+    - clips/plan.json + *_final.mp4        # 二次创作切片成片（可选）

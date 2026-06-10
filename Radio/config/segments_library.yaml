@@ -1,0 +1,150 @@
+version: 1
+description: '广播节目常驻环节知识库。
+
+  LLM 在做节目总结时会把这里的条目作为参考，匹配上的环节直接复用 `intro`，
+
+  保证同一环节在不同期之间的描述一致。新环节由人工追加，避免噪音。
+
+  '
+programs:
+- program_id: mygo_meigo_shukai
+  program_ja: MyGO!!!!!の「迷子集会」
+  program_zh: MyGO!!!!!的《迷子集会》
+  note: MyGO!!!!! 五位声优的常规广播节目。
+  recurring_segments:
+  - id: bokuwatashi_maigochuu
+    title_ja: 僕、私、迷子中
+    aliases:
+    - 僕私迷子中
+    - ぼく わたし まいごちゅう
+    - 僕、わたし、迷子中
+    - ボク、ワタシ、迷子中
+    intro: '这个环节征集听众们还在犹豫要不要做、迟迟无法迈出第一步、
+
+      优柔寡断无法决定的事情的来信，由成员们一起为听众迷茫的事情
+
+      出主意、做决断或鼓励，是节目主轴之一。
+
+      '
+  - id: auto_03b8cd
+    title_ja: オープニング
+    aliases: []
+    intro: 节目固定的开场环节，主持人寒暄并介绍今天的话题。
+  - id: 57577_035fc3
+    title_ja: 迷子の57577
+    aliases: []
+    intro: 这个环节会听取听众迷茫的小故事，然后由当天的成员各自构思，用5字、7字、5字、7字、7字的词句，为听众编织一条信息。成员们不会事先沟通，直接现场即兴发表。
+  - id: auto_d43a55
+    title_ja: ふつおたのコーナー
+    aliases: []
+    intro: 这个环节会征集并介绍大家日常生活中发生的各种事情，包括趣事、留言、问题等。
+  - id: auto_e2fb90
+    title_ja: エンディング
+    aliases: []
+    intro: 节目固定的结尾环节，主持人总结本期节目，感谢听众，并进行各项告知。
+  - id: auto_d52648
+    title_ja: 僕たちはライブの感想をここで叫ぶ
+    aliases: []
+    intro: 这个环节专门征集并介绍听众们观看MyGO!!!!! Live后的感想，包括感受、想对成员说的话以及想问的问题。
+  - id: auto_e8ccf4
+    title_ja: 選曲
+    aliases: []
+    intro: 本环节播放一首MyGO!!!!!的歌曲，通常由一位成员推荐。
+- program_id: hina_radio
+  program_ja: 羊宮妃那のこもれびじかん
+  program_zh: 羊宮妃那的木漏时光
+  note: 羊宮妃那个人广播节目。
+  recurring_segments:
+  - id: auto_03b8cd
+    title_ja: オープニング
+    aliases:
+    - オープニングトーク
+    intro: 节目固定的开场环节，羊宫妃那进行温柔的寒暄并分享近况。
+  - id: auto_e2fb90
+    title_ja: エンディング
+    aliases: []
+    intro: 节目的结束环节，羊宫妃那进行总结，公布节目信息和个人告知事项，并向听众告别。
+  - id: auto_e5f071
+    title_ja: 羊宫妃那のトークスタイル
+    aliases: []
+    intro: 羊宫妃那回应听众关于她录音姿势和日常说话风格的提问，分享了她如何根据不同场合调整自己的表达方式。
+  - id: auto_2fa254
+    title_ja: 優しさだったのに
+    aliases: []
+    intro: 本环节是大家分享那些本意是好的、结果却没能顺利进行的经历。
+  - id: auto_d2e41e
+    title_ja: 集まれ!褒められたい!応援されたい!
+    aliases: []
+    intro: 本环节是向各位こもりす募集想要被夸赞的事情、想要被应援的事情，为大家补充一点点明天的活力，帮助大家做好准备。
+  - id: auto_230fcf
+    title_ja: 宝物についてのお便り
+    aliases: []
+    intro: 听众分享自己珍藏的“宝物”及其背后的故事，羊宫妃那温柔回应并分享自己的感想。
+  - id: auto_a71e47
+    title_ja: こもりすからのお便り
+    aliases: []
+    intro: 羊宫妃那回应听众关于MyGO!!!!!登上《声优Grand Prix》封面拍摄幕后故事的提问。
+  - id: auto_ecdcc4
+    title_ja: お便り紹介
+    aliases: []
+    intro: 羊宫妃那阅读了第一封听众来信，内容是关于节目开播的祝贺以及听众女儿考入高中、开启新生活的故事。
+  - id: auto_743582
+    title_ja: こもれ話
+    aliases: []
+    intro: 本环节是听众分享他们希望未来能有的创新事物，羊宫妃那对此进行回应和想象。
+  - id: auto_09fa27
+    title_ja: 週刊、こもりすプチニュース
+    aliases: []
+    intro: 这是一个请小森铃的各位发送您个人的琐碎小新闻，让我们更加了解小森铃的环节。
+  - id: auto_3d7e1b
+    title_ja: 告知事項
+    aliases: []
+    intro: 羊宫妃那公布了她7月份的动画出演作品。
+  - id: auto_a47d10
+    title_ja: こもりすさんの頬袋
+    aliases: []
+    intro: 本环节是向大家征集能让明天变得稍微有趣一点的小知识的。
+  - id: auto_f88448
+    title_ja: 羊宫妃那のプチニュース
+    aliases: []
+    intro: 羊宫妃那分享自己的个人小新闻，通常是关于她近期生活中的趣事或感受。
+  - id: ymy_65ac6e
+    title_ja: チャットYMY
+    aliases: []
+    intro: 这是一个新环节，灵感来源于ChatGPT，听众可以向「Chat羊宫」提出任何问题，羊宫妃那将以她独特的「羊宫风格」给出回答。
+  - id: auto_381d5c
+    title_ja: 羊宫妃那が選ぶのは、どっち?
+    aliases: []
+    intro: 这是一个猜谜环节：对于工作人员提出的二选一问题，羊宫妃那会选择哪一边呢？让各位こもりす以及工作人员也来预测一下。
+  - id: auto_81084c
+    title_ja: 節目速報と羊宫妃那の零食小話
+    aliases: []
+    intro: 节目突然插入速报，宣布《羊宫妃那的こもれびじかん》首次活动举办，随后羊宫妃那分享了一个关于自己零食的可爱小故事。
+  - id: auto_0da369
+    title_ja: アフタートーク
+    aliases: []
+    intro: 节目结束后，羊宫妃那与嘉宾樱谷理子进行轻松的闲聊，回顾本期节目的氛围，并展望未来的合作企划。
+  - id: auto_bdb8e2
+    title_ja: 羊宫妃那の鞄の中身はなんだろうなクイズ
+    aliases: []
+    intro: 羊宫妃那擅自设立的个人小环节，让听众猜测她包里的物品。
+  - id: auto_f00a52
+    title_ja: 羊宫妃那のバッグの中身クイズ
+    aliases: []
+    intro: 羊宫妃那分享自己的个人小新闻，通常是关于她近期生活中的趣事或感受。
+  - id: auto_d3d5e4
+    title_ja: 年末振り返り
+    aliases: []
+    intro: 羊宫妃那回顾了2025年的重要事件和活动，并惊喜地在演播室玩起了扭蛋机。
+  - id: auto_73151a
+    title_ja: テーマメール募集
+    aliases: []
+    intro: 羊宫妃那公布了下期节目的主题邮件征集内容。
+  - id: auto_563c44
+    title_ja: 週刊、こもりす、プチニュース
+    aliases: []
+    intro: 这是一个请小森铃的各位发送您个人的琐碎小新闻，让我们更加了解小森铃的环节。
+  - id: auto_64b6a4
+    title_ja: 新コーナーの提案
+    aliases: []
+    intro: 羊宫妃那分享了她对未来节目新环节的构想。

@@ -1,0 +1,58 @@
+# Python / tooling
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+
+# Secrets and local credentials
+.env
+.env.local
+.env.*.local
+radiko_cookies*.json
+cookies*.json
+
+# Runtime databases, logs, and generated service state
+Radio/data/logs/*
+Radio/data/history_context.jsonl
+Radio/data/pending_segments.json
+Radio/data/pending_xhs.json
+Radio/data/scheduler.sqlite*
+Radio/data/state.sqlite*
+Radio/data/recordings/
+Radio/data/xhs_covers/
+
+radio_kg/data/*.sqlite
+radio_kg/data/*.sqlite-*
+radio_kg/data/*.pid
+radio_kg/data/*.log
+radio_kg/data/chroma/
+radio_kg/data/pending/
+radio_kg/data/logs/
+radio_kg/data/clips/
+radio_kg/data/scorecard_*.json
+radio_kg/data/eval_qa20_*.json
+radio_kg/data/index_version.json
+
+# clip 运行产物（成片/任务状态）与独立 ASR venv
+clip/data/
+.venv_whisperx/
+
+# Local editor / OS files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local assistant/tool settings
+.claude/
+
+# Archived metadata from the pre-merge standalone radio repo, if preserved.
+Radio/.git.merged-backup/

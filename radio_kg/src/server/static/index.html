@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>radio_kg · 人机协同审批看板</title>
+<style>
+  :root { --bg:#0f1115; --card:#1a1d24; --line:#2b2f3a; --fg:#e6e8ee; --mut:#9aa3b2;
+          --ok:#3fb950; --warn:#d29922; --bad:#f85149; --acc:#58a6ff; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.55 -apple-system,system-ui,"Hiragino Sans","Microsoft YaHei",sans-serif;
+         background:var(--bg); color:var(--fg); }
+  header { padding:18px 24px; border-bottom:1px solid var(--line); display:flex; align-items:baseline; gap:16px; }
+  header h1 { font-size:18px; margin:0; }
+  header a { color:var(--acc); text-decoration:none; font-size:13px; }
+  header .stats { color:var(--mut); font-size:13px; }
+  main { display:grid; grid-template-columns:300px 1fr; gap:0; height:calc(100vh - 59px); }
+  .side { border-right:1px solid var(--line); overflow:auto; padding:12px; }
+  .side h2, .main h2 { font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--mut); margin:6px 4px 12px; }
+  .ep { display:flex; align-items:center; justify-content:space-between; padding:7px 9px; border-radius:8px; }
+  .ep:hover { background:#161922; }
+  .ep .lbl { font-size:12px; color:var(--mut); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:185px; }
+  .dot { width:8px; height:8px; border-radius:50%; flex:0 0 8px; }
+  .dot.on { background:var(--ok); } .dot.off { background:#39414f; }
+  button { font:inherit; cursor:pointer; border:1px solid var(--line); background:#222633; color:var(--fg);
+           border-radius:7px; padding:5px 11px; }
+  button:hover { border-color:var(--acc); }
+  button.mini { padding:3px 9px; font-size:12px; }
+  .main { overflow:auto; padding:16px 24px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:14px; }
+  .card .ttl { font-weight:600; margin-bottom:4px; }
+  .kind { font-size:11px; padding:2px 8px; border-radius:20px; margin-left:8px; }
+  .kind.conflict { background:#3a2a12; color:var(--warn); }
+  .kind.inspect { background:#10263a; color:var(--acc); }
+  .cmp { display:grid; grid-template-columns:1fr 24px 1fr; gap:8px; align-items:center; margin:10px 0; }
+  .box { border:1px solid var(--line); border-radius:8px; padding:9px 11px; background:#12151c; }
+  .box .h { font-size:11px; color:var(--mut); margin-bottom:3px; }
+  .box.old .h { color:var(--mut); } .box.new .h { color:var(--ok); }
+  .arrow { text-align:center; color:var(--mut); }
+  .reason { color:var(--mut); font-size:12.5px; margin:6px 0 10px; }
+  .acts { display:flex; gap:8px; flex-wrap:wrap; }
+  .acts .seg { display:flex; gap:6px; }
+  .empty { color:var(--mut); padding:40px; text-align:center; }
+  .toast { position:fixed; right:18px; bottom:18px; background:#1f2430; border:1px solid var(--line);
+           padding:10px 14px; border-radius:9px; opacity:0; transition:.25s; }
+  .toast.show { opacity:1; }
+  code { color:#e6db74; }
+</style>
+</head>
+<body>
+<header>
+  <h1>radio_kg · 人机协同审批看板</h1>
+  <a href="/">对话</a>
+  <a href="/radio">Radio</a>
+  <span class="stats" id="stats">加载中…</span>
+  <span style="flex:1"></span>
+  <button class="mini" onclick="refresh()">刷新</button>
+</header>
+<main>
+  <div class="side">
+    <h2>期数</h2>
+    <div id="episodes"></div>
+  </div>
+  <div class="main">
+    <h2>待处理知识变更</h2>
+    <div id="pending"></div>
+  </div>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),2200); }
+async function jget(u){ return (await fetch(u)).json(); }
+async function jpost(u,b){ const r=await fetch(u,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)}); if(!r.ok) throw new Error((await r.json()).detail||r.status); return r.json(); }
+
+async function loadEpisodes(){
+  const d = await jget("/api/episodes");
+  $("#stats").textContent = `图谱实体 ${d.stats.entities} · 关系 ${d.stats.relations} · 已入库期数 ${d.episodes.filter(e=>e.ingested).length}/${d.episodes.length}`;
+  $("#episodes").innerHTML = d.episodes.map(e => `
+    <div class="ep">
+      <span class="dot ${e.ingested?'on':'off'}"></span>
+      <span class="lbl" title="${e.label}">#${e.episode??'?'} ${e.label.replace(/^[0-9_\-]+/,'')}</span>
+      <button class="mini" onclick='ingest(${e.episode})'>入库</button>
+    </div>`).join("");
+}
+
+async function loadPending(){
+  const d = await jget("/api/pending");
+  const box = $("#pending");
+  if(!d.pending.length){ box.innerHTML = `<div class="empty">暂无待审批项。从左侧对某期点击「入库」，若产生冲突或审核高风险事实将在此出现。</div>`; return; }
+  box.innerHTML = d.pending.map(renderThread).join("");
+}
+
+function triple(t){ if(!t) return "—"; return `${t.subject?.name??t.subject} —[${t.relation??t.predicate}]→ ${t.object?.name??t.object}`; }
+
+function renderThread(p){
+  const isConf = p.kind === "conflicts";
+  const items = p.items.map((it,i)=> isConf ? confItem(it,i) : inspItem(it,i)).join("");
+  const opts = isConf
+    ? `<option value="confirm">确认变更（保留历史线）</option><option value="overwrite">覆盖旧知识</option><option value="ignore">忽略新提取</option>`
+    : `<option value="accept_correction">采用纠偏</option><option value="keep_original">保留原文</option><option value="ignore">忽略</option>`;
+  return `<div class="card" data-thread="${encodeURIComponent(p.thread_id)}" data-kind="${p.kind}">
+    <div class="ttl">${p.label || p.thread_id}
+      <span class="kind ${isConf?'conflict':'inspect'}">${isConf?'知识冲突':'审核·高风险事实'}</span></div>
+    ${items}
+    <div style="margin-top:6px;color:var(--mut);font-size:12px">每项选择处理方式：</div>
+    ${p.items.map((_,i)=>`<select class="dec" data-i="${i}" style="margin:6px 6px 0 0;padding:5px;border-radius:6px;background:#12151c;color:var(--fg);border:1px solid var(--line)">${opts}</select>`).join("")}
+    <div class="acts" style="margin-top:12px"><button onclick='submitThread(this)'>提交本期决定并恢复</button></div>
+  </div>`;
+}
+
+function confItem(it,i){
+  return `<div class="cmp">
+    <div class="box old"><div class="h">已有知识</div>${it.subject_name} —[${it.relation}]→ ${it.existing_object}</div>
+    <div class="arrow">⟶</div>
+    <div class="box new"><div class="h">新广播提取（第${it.new_source?.episode??'?'}期）</div>${it.subject_name} —[${it.relation}]→ ${it.new_object}</div>
+  </div>`;
+}
+
+function inspItem(it,i){
+  return `<div class="cmp">
+    <div class="box old"><div class="h">原始抽取</div>${triple(it.original_triple)}</div>
+    <div class="arrow">⟶</div>
+    <div class="box new"><div class="h">建议纠偏（${it.suggested_type||''} · 置信 ${it.confidence??''}）</div>${triple(it.suggested_triple)}</div>
+  </div>
+  <div class="reason">理由：${it.reason||''}</div>`;
+}
+
+async function ingest(ep){
+  if(ep==null) return;
+  toast(`第 ${ep} 期入库中…`);
+  try{
+    const r = await jpost("/api/ingest", {episode: ep});
+    toast(r.status==="interrupted" ? `第 ${ep} 期已挂起，待审批` : `第 ${ep} 期入库完成：${(r.written||[]).join(', ')}`);
+    refresh();
+  }catch(e){ toast("入库失败："+e.message); }
+}
+
+async function submitThread(btn){
+  const card = btn.closest(".card");
+  const thread_id = decodeURIComponent(card.dataset.thread);
+  const decisions = [...card.querySelectorAll(".dec")].map(s=>s.value);
+  toast("恢复状态机中…");
+  try{
+    const r = await jpost("/api/resume", {thread_id, decisions});
+    toast(r.status==="interrupted" ? "已处理，仍有后续审批项" : `已恢复完成：${(r.written||[]).join(', ')}`);
+    refresh();
+  }catch(e){ toast("恢复失败："+e.message); }
+}
+
+function refresh(){ loadEpisodes(); loadPending(); }
+refresh();
+setInterval(loadPending, 5000);
+</script>
+</body>
+</html>

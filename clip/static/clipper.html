@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>直播录制和切片</title>
+<style>
+  :root { --bg:#f3f7f3; --card:#fff; --line:#dfe7df; --accent:#5b9a6f; --ink:#243; --mut:#789; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.6 -apple-system,"PingFang SC",sans-serif; background:var(--bg); color:var(--ink); }
+  header { display:flex; align-items:center; gap:12px; padding:14px 20px; background:var(--card); border-bottom:1px solid var(--line); }
+  header a { color:var(--mut); text-decoration:none; font-size:13px; }
+  header h1 { font-size:17px; margin:0; }
+  .wrap { max-width:1100px; margin:0 auto; padding:18px; display:grid; gap:18px; grid-template-columns:1fr 1fr; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; }
+  .card h2 { margin:0 0 12px; font-size:15px; }
+  .full { grid-column:1 / -1; }
+  label { display:block; font-size:12px; color:var(--mut); margin:8px 0 3px; }
+  input,select { width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:8px; font-size:13px; }
+  .row { display:flex; gap:10px; } .row > * { flex:1; }
+  button { background:var(--accent); color:#fff; border:0; border-radius:8px; padding:9px 14px; cursor:pointer; font-size:13px; }
+  button.ghost { background:#eef3ee; color:var(--ink); border:1px solid var(--line); }
+  .chip { display:inline-flex; align-items:center; gap:6px; background:#eef4ef; border:1px solid var(--line); border-radius:999px; padding:3px 10px; margin:3px 4px 3px 0; font-size:12px; }
+  .chip b { cursor:pointer; color:#c66; }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th,td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); }
+  th { color:var(--mut); font-weight:600; }
+  td.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .mut { color:var(--mut); font-size:12px; }
+  .factor { border:1px solid var(--line); border-radius:8px; padding:8px 10px; margin:6px 0; }
+  .factor .kw { color:var(--accent); font-size:12px; }
+  .song { color:#b5651d; }
+  .job { font-size:12px; padding:6px 8px; border-bottom:1px solid var(--line); }
+	  .pill { font-size:11px; padding:1px 7px; border-radius:999px; background:#eef4ef; }
+	  .recbox { border:1px solid var(--line); border-radius:8px; padding:8px 10px; margin:10px 0; background:#fbfdfb; }
+	  .recbox b { font-size:13px; }
+	  #pv_table td { vertical-align:top; }
+  #pv_table input { width:100%; padding:4px 6px; border:1px solid var(--line); border-radius:6px; font-size:12.5px; margin:1px 0; }
+  #pv_table input.zh { color:#b5651d; }
+  #pv_table tr.active { background:#eef7f0; }
+  #pv_table td.t { cursor:pointer; color:var(--accent); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  #pv_table tr.songrow td.t { color:#b5651d; }
+</style>
+</head>
+<body>
+<header>
+  <a href="/">← 主页</a>
+  <h1>🎬 直播录制和切片</h1>
+  <span class="mut" id="hint"></span>
+</header>
+<div class="wrap">
+
+  <!-- (1) 录制/上传 -->
+  <div class="card">
+    <h2>① 上传 / 录制链接</h2>
+    <label>直播 / 视频 URL</label>
+    <input id="url" placeholder="https://www.youtube.com/watch?v=...">
+    <div class="row">
+      <div><label>节目方案</label><select id="program"></select></div>
+      <div><label>分辨率上限</label>
+        <select id="res"><option value="720">720p</option><option value="1080">1080p</option><option value="480">480p</option></select></div>
+    </div>
+    <div class="row">
+      <div><label>录制时长(分钟，留空=整场/VOD)</label><input id="dur" type="number" placeholder="仅直播录制需要"></div>
+      <div><label>处理后</label><select id="tg"><option value="1">自动推 Telegram 切片菜单</option><option value="0">仅处理入库</option></select></div>
+    </div>
+    <div style="margin-top:12px"><button onclick="submitJob()">开始处理</button></div>
+    <div id="jobs" style="margin-top:12px"></div>
+  </div>
+
+  <!-- (2) 个人感兴趣话题 -->
+  <div class="card">
+    <h2>② 我感兴趣的话题</h2>
+    <div class="row">
+      <input id="topic" placeholder="如：歌枠 / VTuber / バンドリ / 翻唱" onkeydown="if(event.key==='Enter')addTopic()">
+      <button class="ghost" style="flex:0 0 auto" onclick="addTopic()">添加</button>
+    </div>
+    <div id="topics" style="margin-top:10px"></div>
+    <div class="mut" style="margin-top:8px">这些话题会用于「爆火因素」分析与切片选材的侧重。</div>
+  </div>
+
+  <!-- (3) 近期热点 -->
+  <div class="card full">
+    <h2>③ 最近可能火爆的因素 & 涨播放最快的视频
+      <button class="ghost" style="float:right" onclick="loadTrends(true)">刷新</button></h2>
+    <div id="factors"></div>
+    <div style="overflow:auto;margin-top:10px">
+      <table id="vtab"><thead><tr>
+        <th>#</th><th>分区</th><th>标题</th><th class="num">动量(播/时)</th><th class="num">播放</th>
+        <th class="num">投币</th><th class="num">弹幕</th><th class="num">时长(h)</th>
+      </tr></thead><tbody></tbody></table>
+    </div>
+    <div class="mut" id="tmeta" style="margin-top:6px"></div>
+  </div>
+
+  <!-- (4) 手动指定时间轴切片 -->
+  <div class="card">
+    <h2>④ 手动指定时间轴切片</h2>
+    <label>节目方案</label>
+    <select id="m_program" onchange="loadEpisodes()"></select>
+    <label>选择期</label>
+    <select id="m_episode"></select>
+    <div class="row">
+      <div><label>起 (时:分:秒 或 秒)</label><input id="m_start" placeholder="如 52:06 或 3126"></div>
+      <div><label>止</label><input id="m_end" placeholder="如 59:10 或 3550"></div>
+    </div>
+    <div class="row">
+      <div><label>二次精听重译 LLM</label><select id="m_llm_provider">
+        <option value="">默认（不强制重译）</option>
+        <option value="anthropic">Anthropic / Claude</option>
+        <option value="deepseek">DeepSeek</option>
+        <option value="mimo">MiMo</option>
+        <option value="openai">OpenAI</option>
+      </select></div>
+      <div><label>模型覆盖（可空）</label><input id="m_llm_model" placeholder="如 claude-haiku-4-5 / deepseek-chat"></div>
+    </div>
+    <div style="margin-top:12px"><button onclick="doSlice()">切片（含二次精听字幕）</button></div>
+    <div id="m_jobs" style="margin-top:12px"></div>
+    <div class="mut" style="margin-top:6px">谈话段用 Parakeet 二次精听（跟随语音、去幻觉）；选择 LLM 后会把短片谈话文本整体交给模型理解上下文并逐句重译。范围内歌曲段按歌词策略处理。</div>
+  </div>
+
+  <!-- (4') 字幕审核 & 视频预览 -->
+  <div class="card full" id="preview_card" style="display:none">
+    <h2>④′ 字幕审核 & 视频预览
+      <span class="mut" id="pv_stage" style="float:right"></span></h2>
+    <div style="display:flex;gap:16px;flex-wrap:wrap">
+      <div style="flex:1 1 420px;min-width:320px">
+        <div style="position:relative;background:#000;border-radius:8px;overflow:hidden">
+          <video id="pv_video" controls style="width:100%;display:block"></video>
+          <div id="pv_overlay" style="position:absolute;left:0;right:0;bottom:10px;text-align:center;
+            pointer-events:none;font-weight:700;text-shadow:0 2px 6px #000,0 0 3px #000;color:#fff;padding:0 12px"></div>
+        </div>
+        <div class="mut" style="margin-top:6px">编辑右侧字幕会实时反映到画面叠层（不重新烧录）。点行内时间可跳转。</div>
+      </div>
+      <div style="flex:1 1 420px;min-width:320px;max-height:430px;overflow:auto">
+        <table id="pv_table"><thead><tr>
+          <th style="width:78px">时间</th><th>日文 / 中文</th><th style="width:34px"></th>
+        </tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+	    <div style="margin-top:12px">
+	      <div id="title_rec"></div>
+	      <button onclick="assemble()">组装成片（烧录字幕）</button>
+	      <span id="pv_result" class="mut" style="margin-left:10px"></span>
+	    </div>
+  </div>
+
+  <!-- (5) 节目报告 -->
+  <div class="card full">
+    <h2>⑤ 节目报告（主播在什么时间做了什么）
+      <span style="float:right">
+        <select id="r_program" onchange="loadEpisodes('r')" style="width:auto"></select>
+        <select id="r_episode" style="width:auto"></select>
+        <button class="ghost" onclick="loadReport()">生成报告</button>
+      </span></h2>
+    <div id="report"><span class="mut">选择期后点「生成报告」。</span></div>
+  </div>
+
+</div>
+<script>
+const $=s=>document.querySelector(s);
+async function jget(u){ const r=await fetch(u); return r.json(); }
+async function jpost(u,b){ const r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}); return r.json(); }
+
+// ---- programs ----
+jget('/clipper/api/programs').then(d=>{
+  const opts = d.programs.map(p=>`<option value="${p.id}">${p.display_name}${p.auto_telegram?' ⚡':''}</option>`).join('') || '<option value="">(无方案)</option>';
+  $('#program').innerHTML = opts;
+  $('#m_program').innerHTML = opts; $('#r_program').innerHTML = opts;
+  loadEpisodes(); loadEpisodes('r');
+});
+
+// ---- episodes (manual slice + report) ----
+function fmtHMS(s){ s=Math.floor(s); const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60; return (h?h+':':'')+String(m).padStart(h?2:1,'0')+':'+String(x).padStart(2,'0'); }
+function parseTS(v){ v=(v||'').trim(); if(!v) return NaN; if(v.indexOf(':')<0) return parseFloat(v);
+  return v.split(':').reverse().reduce((a,p,i)=>a+parseFloat(p)*Math.pow(60,i),0); }
+async function loadEpisodes(pfx){
+  pfx=pfx||''; const prog=$('#'+(pfx?'r_':'m_')+'program').value; if(!prog) return;
+  const d=await jget('/clipper/api/episodes?program='+encodeURIComponent(prog));
+  const sel=$('#'+(pfx?'r_':'m_')+'episode');
+  sel.innerHTML=(d.episodes||[]).map(e=>`<option value="${encodeURIComponent(e.episode_dir)}">${e.name.slice(0,40)}${e.has_summary?'':' (无摘要)'}</option>`).join('')||'<option value="">(无归档)</option>';
+}
+
+// ---- manual slice: 预览 → 逐句审核/修改 → 组装 ----
+let pvJob=null, pvCues=[];
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+async function doSlice(){
+  const ep=decodeURIComponent($('#m_episode').value||''); if(!ep){alert('请选期');return;}
+	  const start=parseTS($('#m_start').value), end=parseTS($('#m_end').value);
+	  if(isNaN(start)||isNaN(end)||end<=start){alert('时间轴无效');return;}
+	  $('#m_jobs').innerHTML='<div class="job"><span class="pill">queued</span> 提交预览…</div>';
+	  const llm_provider=$('#m_llm_provider').value||null;
+	  const llm_model=($('#m_llm_model').value||'').trim()||null;
+	  const r=await jpost('/clipper/api/slice/preview',{program:$('#m_program').value, episode_dir:ep, start, end, llm_provider, llm_model});
+	  pvJob=r.job_id; $('#pv_result').textContent=''; pollPreview();
+	}
+async function pollPreview(){
+  if(!pvJob) return;
+  const d=await jget('/clipper/api/slice/preview/'+pvJob);
+  $('#m_jobs').innerHTML=`<div class="job"><span class="pill">${d.status||'?'}</span> ${d.stage||''}
+    ${d.error?`<div class="mut" style="color:#c33">${d.error}</div>`:''}</div>`;
+  if(d.status==='running'||d.status==='queued'){ setTimeout(pollPreview,3000); return; }
+  if(d.status==='error') return;
+	  if(d.has_final){
+	    renderTitleRec(d.title_recommendation);
+	    $('#pv_result').innerHTML=`✅ 成片就绪 · <a href="/clipper/api/clip/${pvJob}" target="_blank">下载 (${d.size_mb||'?'}MB)</a>`;
+	    return;
+	  }
+	  pvCues=(d.cues||[]).map(c=>Object.assign({},c));
+	  $('#pv_stage').textContent='待审核 · '+pvCues.length+' 句';
+  $('#preview_card').style.display='';
+	  $('#pv_video').src='/clipper/api/slice/preview_video/'+pvJob+'?_='+Date.now();
+	  renderCues();
+	  renderTitleRec(d.title_recommendation);
+	  $('#preview_card').scrollIntoView({behavior:'smooth'});
+	}
+	function renderTitleRec(r){
+	  if(!r){ $('#title_rec').innerHTML=''; return; }
+	  const alts=(r.alternatives||[]).filter(Boolean).map(x=>`<span class="chip">${esc(x)}</span>`).join('');
+	  const factor=r.factor&&r.factor.topic?`<div class="mut">参考因素：${esc(r.factor.topic)}${r.factor.hook?' · '+esc(r.factor.hook):''}</div>`:'';
+	  const video=r.reference_video&&r.reference_video.title?`<div class="mut">参考快涨视频：${esc(r.reference_video.title)}${r.reference_video.momentum?' · '+Number(r.reference_video.momentum).toLocaleString()+' 播/时':''}</div>`:'';
+	  $('#title_rec').innerHTML=`<div class="recbox">
+	    <b>命名推荐：${esc(r.recommended_title||'')}</b>
+	    ${r.suggested_filename?`<div class="mut">建议文件名：${esc(r.suggested_filename)}</div>`:''}
+	    ${alts?`<div>${alts}</div>`:''}
+	    ${r.reason?`<div class="mut">${esc(r.reason)}</div>`:''}
+	    ${factor}${video}
+	  </div>`;
+	}
+function renderCues(){
+  $('#pv_table tbody').innerHTML=pvCues.map((c,i)=>`<tr class="${c.song?'songrow':''}" data-i="${i}">
+    <td class="t" onclick="seekCue(${i})">${fmtHMS(c.start)}</td>
+    <td><input class="ja" value="${esc(c.ja)}" oninput="editCue(${i},'ja',this.value)" placeholder="日文">
+        <input class="zh" value="${esc(c.zh)}" oninput="editCue(${i},'zh',this.value)" placeholder="中文"></td>
+    <td><span class="chip" style="cursor:pointer" onclick="dropCue(${i})">×</span></td></tr>`).join('')
+    || '<tr><td colspan="3" class="mut">无字幕</td></tr>';
+}
+function editCue(i,k,v){ if(pvCues[i]){ pvCues[i][k]=v; syncOverlay(); } }
+function dropCue(i){ pvCues.splice(i,1); renderCues(); }
+function seekCue(i){ const v=$('#pv_video'); if(pvCues[i]){ v.currentTime=pvCues[i].start+0.01; v.play(); } }
+function syncOverlay(){
+  const v=$('#pv_video'), t=v.currentTime; let cur=-1;
+  for(let i=0;i<pvCues.length;i++){ if(t>=pvCues[i].start && t<pvCues[i].end){ cur=i; break; } }
+  const c=cur>=0?pvCues[cur]:null;
+  $('#pv_overlay').innerHTML=c?`<div style="font-size:18px">${esc(c.ja)}</div>${c.zh?`<div style="font-size:20px;color:#ffd9a8">${esc(c.zh)}</div>`:''}`:'';
+  document.querySelectorAll('#pv_table tr').forEach(tr=>tr.classList.toggle('active', +tr.dataset.i===cur));
+}
+$('#pv_video').addEventListener('timeupdate',syncOverlay);
+async function assemble(){
+  if(!pvJob) return;
+  $('#pv_result').textContent='组装烧录中…（约 1-3 分钟）';
+  await jpost('/clipper/api/slice/assemble',{job_id:pvJob, cues:pvCues});
+  pollPreview();
+}
+
+// ---- program report ----
+async function loadReport(){
+  const ep=decodeURIComponent($('#r_episode').value||''); if(!ep){alert('请选期');return;}
+  $('#report').innerHTML='<span class="mut">生成中…</span>';
+  const r=await jget('/clipper/api/report?episode_dir='+encodeURIComponent(ep));
+  if(r.error){ $('#report').innerHTML='<span class="mut">'+r.error+'</span>'; return; }
+  const bars=(r.stats.by_type||[]).map(b=>`<span class="chip">${b.type} ${b.hms} (${b.pct}%)</span>`).join(' ');
+  const tl=(r.timeline||[]).map(t=>`<div class="factor"><b>${t.ts}</b> <span class="kw">${t.type}</span> ${t.title}
+    <div class="mut">${t.host_action||''}</div></div>`).join('');
+  const sl=(r.songs||[]).map(s=>`<span class="chip song">🎵 ${s.ts} ${s.title}</span>`).join(' ');
+  $('#report').innerHTML=`<div class="mut">总时长 ${r.duration_hms} · ${r.stats.sections} 个板块 · ${r.stats.songs} 首曲目</div>
+    <div style="margin:8px 0">${bars}</div>
+    <h3 style="font-size:14px;margin:10px 0 4px">⏱ 时间线（主播在什么时间做了什么）</h3>${tl}
+    ${sl?`<h3 style="font-size:14px;margin:10px 0 4px">🎵 曲目时间戳</h3><div>${sl}</div>`:''}`;
+}
+
+// ---- interests ----
+let topics=[];
+function renderTopics(){ $('#topics').innerHTML = topics.map((t,i)=>`<span class="chip">${t}<b onclick="delTopic(${i})">×</b></span>`).join('') || '<span class="mut">还没有话题</span>'; }
+function addTopic(){ const v=$('#topic').value.trim(); if(v&&!topics.includes(v)){topics.push(v); $('#topic').value=''; saveTopics();} }
+function delTopic(i){ topics.splice(i,1); saveTopics(); }
+async function saveTopics(){ await jpost('/clipper/api/interests',{topics}); renderTopics(); }
+jget('/clipper/api/interests').then(d=>{ topics=d.topics||[]; renderTopics(); });
+
+// ---- trends ----
+async function loadTrends(force){
+  $('#factors').innerHTML='<span class="mut">加载中（抓 B 站 + 分析，约 30-60s）…</span>';
+	  const d=await jget('/clipper/api/trends?topk=10&factors=true'+(force?'&force=true':''));
+  $('#factors').innerHTML = (d.factors||[]).map(f=>`<div class="factor"><b>${f.topic}</b>
+    ${f.hot_songs&&f.hot_songs.length?` <span class="song">🎵 ${f.hot_songs.join(' / ')}</span>`:''}
+    <div class="kw">${(f.keywords||[]).join(' · ')}</div>
+    <div class="mut">${f.hook||''}</div></div>`).join('') || '<span class="mut">暂无</span>';
+  const tb=$('#vtab tbody');
+  tb.innerHTML=(d.videos||[]).map((v,i)=>`<tr>
+    <td>${i+1}</td><td>${v.partition}</td>
+    <td><a href="${v.url}" target="_blank">${v.title}</a><div class="mut">${v.owner}</div></td>
+    <td class="num">${v.momentum.toLocaleString()}</td><td class="num">${v.view.toLocaleString()}</td>
+    <td class="num">${v.coin.toLocaleString()}</td><td class="num">${v.danmaku.toLocaleString()}</td>
+    <td class="num">${v.hours}</td></tr>`).join('');
+	  $('#tmeta').textContent='更新于 '+d.generated_at+'（仅发布满 '+(d.min_age_hours||6)+' 小时；动量=播放量/发布小时数；缓存 5 分钟）';
+	}
+loadTrends();
+
+// ---- record job ----
+async function submitJob(){
+  const url=$('#url').value.trim(); if(!url){alert('请填 URL');return;}
+  const r=await jpost('/clipper/api/record',{url, program:$('#program').value||null, res:+$('#res').value, telegram:$('#tg').value==='1'});
+  $('#url').value=''; pollJobs();
+}
+async function pollJobs(){
+  const d=await jget('/clipper/api/jobs');
+  $('#jobs').innerHTML=(d.jobs||[]).slice(0,6).map(j=>`<div class="job">
+    <span class="pill">${j.status}</span> ${j.stage||''} · <span class="mut">${(j.url||'').slice(0,46)}</span>
+    ${j.error?`<div class="mut" style="color:#c33">${j.error}</div>`:''}</div>`).join('');
+  if((d.jobs||[]).some(j=>j.status==='running'||j.status==='queued')) setTimeout(pollJobs,4000);
+}
+pollJobs();
+</script>
+</body>
+</html>

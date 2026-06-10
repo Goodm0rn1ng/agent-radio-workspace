@@ -1,0 +1,153 @@
+# Radio-Oshikatsu 节目配置
+# v1 只跟一个节目，写死即可。多节目支持留到 v2。
+
+program:
+  # 节目展示名（仅用于日志和 Telegram 消息标题）
+  name: "（节目名称占位）"
+
+  # YouTube 频道 live URL。形如：
+  #   https://www.youtube.com/@channel_handle/live
+  # 节目开播时 yt-dlp 会自动解析到当期直播视频。
+  channel_live_url: "https://www.youtube.com/@example/live"
+
+  # 节目播出时区与时间（cron 表达式，hours/minutes 字段）
+  # 时区固定 Asia/Tokyo（节目所在地）
+  schedule:
+    timezone: "Asia/Tokyo"
+    # 例：每周三 21:00 (JST)
+    day_of_week: "wed"
+    hour: 21
+    minute: 0
+
+  # 开播探测最长等待（分钟）。超过则当作"今天没开播"放弃。
+  detection_timeout_minutes: 30
+  # 探测间隔（秒）
+  detection_interval_seconds: 60
+
+# 转写 / 翻译 / 总结参数
+stt:
+  # Groq Whisper 模型
+  model: "whisper-large-v3"
+  # 提示词（塞专有名词改善人名识别）
+  # 用日语写效果最好
+  prompt: "声優、ラジオ、ライブ、安野希世乃、悠木碧"
+  language: "ja"
+  # 音频切片长度（秒）。YouTube 抽出的音频码率可能较高，短切片可降低 Groq 上传超时概率。
+  segment_seconds: 120
+
+translation:
+  # 日常批量翻译走 DeepSeek；精细翻译可用 CLI 参数切到 Claude Haiku。
+  provider: "deepseek"
+  model: "deepseek-v4-flash"
+  fine_provider: "anthropic"
+  fine_model: "claude-haiku-4-5"
+  # 每批翻译多少个 segment
+  batch_size: 30
+  # 声优 / MyGO!!!!! 专有名词术语库
+  terminology_path: "config/terminology.yaml"
+  # 翻译 prompt。处理其他节目时，可以复制一份专属 prompt 后改这里。
+  prompt_path: "src/radio/prompts/translate.txt"
+
+summary:
+  # 日常总结默认走 Gemini Flash；精修可临时切回 Anthropic。
+  provider: "gemini"
+  model: "gemini-2.5-flash"
+  # 限制摘要中文字数（防止过长）
+  max_summary_chars: 600
+  # LLM 结构化 JSON 输出上限。过低会导致 sections 还没闭合就被截断。
+  max_output_tokens: 32768
+  # 期望高光时刻数量
+  target_highlight_count: 5
+  # 总结 prompt。默认是通用声优广播结构化复盘。
+  prompt_path: "src/radio/prompts/summarize.txt"
+
+# 专有名词后处理替换字典（在 transcript 拼装阶段对中文做 str.replace）
+# 格式：错误 -> 正确
+name_corrections:
+  # "悠木びき": "悠木碧"
+
+# 运行时
+runtime:
+  recordings_dir: "data/recordings"
+  logs_dir: "data/logs"
+  # 并发提交 Whisper 的最大并发数。过高会增加大音频上传超时概率。
+  stt_concurrency: 2
+
+# 调度器（v0.5.0+，main_daemon.py 守护进程模式）
+scheduler:
+  jobstore_path: "data/scheduler.sqlite"
+  misfire_grace_seconds: 600
+
+# 小红书集成：Telegram 审核后通过 xiaohongshu-cli 保存为私密笔记
+# 首次使用需安装并登录：pipx install xiaohongshu-cli && xhs login --qrcode
+xiaohongshu:
+  enabled: true
+  cli_command: ["xhs"]
+  private: true
+  title_max_chars: 30
+  body_max_chars: 1000
+  topics_by_series:
+    "羊宮妃那のこもれびじかん":
+      - "羊宫妃那"
+     
+knowledge_base:
+  # 默认由根目录 agent-up.command 通过环境变量开启：
+  # RADIO_KG_AUTO_INGEST=1
+  # RADIO_KG_AUTO_INGEST_URL=http://127.0.0.1:8000/api/ingest
+  enabled: false
+  ingest_url: ""
+  timeout_seconds: 600
+  fail_pipeline_on_error: false
+
+# 调度器跟的节目列表。每条按 cron 自动跑：录制 → pipeline → Telegram。
+# 留空 [] 表示守护进程不挂任何任务（CLI 单跑模式无影响）。
+#
+# 示例（复制并改字段后启用）：
+#
+# scheduled_programs:
+#   - name: "MyGO!!!!!の「迷子集会」"      # 节目展示名（Telegram + work_dir 用）
+#     source_type: "radiko_live"           # radiko_live / radiko_timefree / youtube_live
+#     enabled: true
+#     radiko_station_id: "QRR"             # 文化放送
+#     duration_minutes: 30                  # 节目时长
+#     schedule:
+#       timezone: "Asia/Tokyo"
+#       day_of_week: "wed"                  # mon/tue/wed/thu/fri/sat/sun
+#       hour: 21
+#       minute: 0
+#     health_check: true                    # 触发时先做 HTTP 健康检查
+#     health_pre_record_minutes: 0          # 0 = 触发即检查；>0 = 提前 N 分钟检查
+#     fail_on_health_fail: false            # health 失败时是否放弃（默认仅告警继续）
+#     fine_translation: false               # 用 Claude Haiku 精翻
+#     profile_id: "hina_radio"              # 可选：使用 config/profiles/<id> 的提示词方案
+#
+#   - name: "YouTube Live 节目名"
+#     source_type: "youtube_live"
+#     enabled: false
+#     channel_live_url: "https://www.youtube.com/@example/live"
+#     duration_minutes: 60
+#     schedule:
+#       timezone: "Asia/Tokyo"
+#       day_of_week: "wed"
+#       hour: 21
+#       minute: 0
+#     detection_timeout_minutes: 30
+#     detection_interval_seconds: 60
+#     fine_translation: false
+#     profile_id: "hina_radio"
+scheduled_programs:
+  - name: "文化放送 QRR 00:30 定期番組"
+    source_type: "radiko_live"
+    enabled: true
+    radiko_station_id: "QRR"
+    duration_minutes: 30
+    schedule:
+      timezone: "Asia/Tokyo"
+      day_of_week: "mon"
+      hour: 0
+      minute: 30
+    health_check: true
+    health_pre_record_minutes: 0
+    fail_on_health_fail: false
+    fine_translation: false
+    profile_id: "hina_radio"

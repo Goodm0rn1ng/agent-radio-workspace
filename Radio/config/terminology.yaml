@@ -1,0 +1,426 @@
+version: 1
+description: "MyGO!!!!! / BanG Dream! 声优广播翻译术语库。优先用于 DeepSeek 翻译提示词和译后名词修正。"
+sources:
+  - name: "BanG Dream! It's MyGO!!!!! official anime page"
+    url: "https://en.bang-dream.com/anime/mygo/"
+  - name: "MyGO!!!!! - Wikipedia"
+    url: "https://en.wikipedia.org/wiki/MyGO%21%21%21%21%21"
+  - name: "MyGO!!!!! - BanG Dream! Wikia"
+    url: "https://bandori.fandom.com/wiki/MyGO%21%21%21%21%21"
+  - name: "Haruhikage - BanG Dream! Wikia"
+    url: "https://bandori.fandom.com/wiki/Haruhikage"
+  - name: "MyGO!!!!! - 萌娘百科"
+    url: "https://moegirl.uk/index.php?title=MyGO%21%21%21%21%21&variant=zh"
+  - name: "MyGO!!!!! - 中文维基百科"
+    url: "https://zh.wikipedia.org/wiki/MyGO%21%21%21%21%21"
+
+terms:
+  - category: group
+    ja: "MyGO!!!!!"
+    zh: "MyGO!!!!!"
+    aliases: ["マイゴ", "迷子", "まいご"]
+    note: "乐队名保留 MyGO!!!!!；提到日语双关时可解释为“迷子/迷路的孩子”。"
+  - category: group
+    ja: "BanG Dream!"
+    zh: "BanG Dream!"
+    aliases: ["バンドリ", "邦邦"]
+    note: "企划名保留英文；粉丝语境可称“邦邦”。"
+  - category: group
+    ja: "CRYCHIC"
+    zh: "CRYCHIC"
+    aliases: ["クライシック"]
+    note: "前身乐队名，保留英文。"
+  - category: group
+    ja: "Ave Mujica"
+    zh: "Ave Mujica"
+    aliases: ["アヴェムジカ", "母鸡卡"]
+    note: "乐队名保留英文；粉丝语境可识别“母鸡卡”。"
+
+  - category: character
+    ja: "高松燈"
+    zh: "高松灯"
+    aliases: ["高松 灯", "高松 燈", "ともり", "トモリ", "Tomori", "Tomori Takamatsu", "灯", "燈"]
+    note: "MyGO!!!!! 主唱；中文简体用“灯”。"
+  - category: character
+    ja: "千早愛音"
+    zh: "千早爱音"
+    aliases: ["千早 愛音", "あのん", "アノン", "Anon", "Anon Chihaya", "爱音", "愛音"]
+    note: "MyGO!!!!! 节奏吉他；中文简体用“爱音”。"
+  - category: character
+    ja: "要楽奈"
+    zh: "要乐奈"
+    aliases: ["要 楽奈", "要樂奈", "らーな", "ラーナ", "Rana", "Rāna", "Raana", "乐奈", "樂奈"]
+    note: "MyGO!!!!! 主音吉他；中文简体用“乐奈”。"
+  - category: character
+    ja: "長崎そよ"
+    zh: "长崎爽世"
+    aliases: ["長崎 爽世", "長崎そよ", "そよ", "Soyo", "Soyo Nagasaki", "爽世"]
+    note: "MyGO!!!!! 贝斯；中文简体用“爽世”。"
+  - category: character
+    ja: "椎名立希"
+    zh: "椎名立希"
+    aliases: ["椎名 立希", "たき", "タキ", "Taki", "Taki Shiina", "立希", "リッキー"]
+    note: "MyGO!!!!! 鼓手；注意和声优立石凛区分。"
+  - category: character
+    ja: "豊川祥子"
+    zh: "丰川祥子"
+    aliases: ["豊川 祥子", "とがわ さきこ", "Sakiko", "Sakiko Togawa", "祥子"]
+    note: "CRYCHIC / Ave Mujica 相关角色。"
+  - category: character
+    ja: "若葉睦"
+    zh: "若叶睦"
+    aliases: ["若葉 睦", "Mutsumi", "Mutsumi Wakaba", "睦"]
+    note: "CRYCHIC / Ave Mujica 相关角色。"
+  - category: character
+    ja: "三角初華"
+    zh: "三角初华"
+    aliases: ["三角 初華", "Uika", "Uika Misumi", "初华"]
+    note: "Ave Mujica 相关角色。"
+  - category: character
+    ja: "八幡海鈴"
+    zh: "八幡海铃"
+    aliases: ["八幡 海鈴", "Umiri", "Umiri Yahata", "海铃"]
+    note: "Ave Mujica 相关角色。"
+  - category: character
+    ja: "祐天寺にゃむ"
+    zh: "祐天寺若麦"
+    aliases: ["祐天寺 にゃむ", "Nyamu", "Nyamu Yutenji", "若麦", "にゃむ"]
+    note: "Ave Mujica 相关角色；粉丝也常直接叫 Nyamu/喵梦。"
+
+  - category: cast
+    ja: "羊宮妃那"
+    zh: "羊宫妃那"
+    aliases: ["羊宫妃那", "Hina Youmiya", "Hina Yomiya", "羊酱", "ひなちゃん", "Hina-chan"]
+    note: "高松灯役；昵称要保留亲昵感。"
+  - category: cast
+    ja: "立石凛"
+    zh: "立石凛"
+    aliases: ["Rin Tateishi", "りんちゃん", "Rin-chan"]
+    note: "千早爱音役；注意不要误译成角色名。"
+  - category: cast
+    ja: "青木陽菜"
+    zh: "青木阳菜"
+    aliases: ["青木阳菜", "Hina Aoki", "ひなぴよ", "Hinapiyo"]
+    note: "要乐奈役；注意和羊宫妃那同名 Hina 区分。"
+  - category: cast
+    ja: "小日向美香"
+    zh: "小日向美香"
+    aliases: ["Mika Kohinata", "みかん", "Mikan"]
+    note: "长崎爽世役。"
+  - category: cast
+    ja: "林鼓子"
+    zh: "林鼓子"
+    aliases: ["Coco Hayashi", "ここちゃん", "Coco-chan"]
+    note: "椎名立希役。"
+
+  - category: radio
+    ja: "MyGO!!!!!の「迷子集会」"
+    zh: "MyGO!!!!!的《迷子集会》"
+    aliases:
+      - "迷子集会"
+      - "まいごしゅうかい"
+      - "マイゴセンター"
+      - "まいごセンター"
+      - "迷子センター"
+      - "マイゴのマイゴセンター"
+    note: |
+      广播节目名，中文用《迷子集会》。节目里反复出现的"マイゴセンター"是节目对
+      自己「迷子集会」的发音梗（センター 念作 Center），不要直译成「迷子中心」
+      或「MyGO!!!!!中心」。"マイゴのマイゴセンター" 是节目对自身的完整自称，
+      译作「MyGO!!!!!的迷子集会」。
+  - category: radio
+    ja: "羊宮妃那のこもれびじかん"
+    zh: "《羊宫妃那的こもれびじかん》"
+    aliases: ["こもれびじかん"]
+    note: "个人广播名，未知官方中文时保留原题。"
+
+  # ────────────────────────────────────────────────────────────────────────
+  # MyGO!!!!! 原创楽曲（全 30 首 + 3 张专辑名）
+  #
+  # MyGO!!!!! 歌曲一大特色：标题用「当て字 ateji」/「義訓 gikun」——汉字写法和
+  # 实际读音不一致。中文圈通常保留汉字写法（如《迷路日々》），读音和英文意思
+  # 通过 aliases + note 提示 LLM 翻译/识别时不要按字面读音去翻。
+  #
+  # 数据来源（已交叉验证）：
+  #   - animatetimes「MyGO!!!!! 楽曲名（読み方）まとめ」
+  #   - Pixiv 百科 MyGO!!!!! オリジナル楽曲一覧
+  #   - Wikipedia EN
+  #   - bandori.party
+  # ────────────────────────────────────────────────────────────────────────
+
+  - category: song
+    ja: "春日影"
+    zh: "《春日影》"
+    aliases: ["はるひかげ", "Haruhikage"]
+    note: "标准训读（はるひかげ）。不要译成「春日影子」或 Spring Sunlight；MyGO!!!!! 语境常是重要名场面。"
+
+  - category: song
+    ja: "詩超絆"
+    zh: "《詩超絆》"
+    aliases: ["うたことば", "Utakotoba"]
+    note: "当て字。读作 うたことば（≈「歌言葉」），不是按汉字字面去读。"
+
+  - category: song
+    ja: "影色舞"
+    zh: "《影色舞》"
+    aliases: ["シルエットダンス", "しるえっとだんす", "Silhouette Dance", "silhouettedance"]
+    note: "当て字。读作 シルエットダンス（Silhouette Dance）。汉字是宛字。"
+
+  - category: song
+    ja: "名無声"
+    zh: "《名無声》"
+    aliases: ["なもなき", "Namonaki"]
+    note: "当て字。读作 なもなき（≈「名も無き」）。"
+
+  - category: song
+    ja: "迷星叫"
+    zh: "《迷星叫》"
+    aliases: ["まよいうた", "Mayoiuta", "MAYOIUTA"]
+    note: "MyGO!!!!! 1st Single（2022/11）。当て字，读作 まよいうた（≈「迷い唄」）。"
+
+  - category: song
+    ja: "音一会"
+    zh: "《音一会》"
+    aliases: ["おといちえ", "Otoichie"]
+    note: "MyGO!!!!! 2nd Single（2023/04）。读作 おといちえ（来自「一期一会」的变体）。"
+
+  - category: song
+    ja: "壱雫空"
+    zh: "《壱雫空》"
+    aliases: ["ひとしずく", "Hitoshizuku"]
+    note: "MyGO!!!!! 3rd Single（2023/08）。读作 ひとしずく（壱=ひと, 雫=しずく, 空 silent）。"
+
+  - category: song
+    ja: "碧天伴走"
+    zh: "《碧天伴走》"
+    aliases: ["へきてんばんそう", "Hekitenbansou"]
+    note: "音读组合（へきてんばんそう）。"
+
+  - category: song
+    ja: "砂寸奏"
+    zh: "《砂寸奏》"
+    aliases: ["さすらい", "Sasurai"]
+    note: "MyGO!!!!! 4th Single A 面（2024/03）。当て字，读作 さすらい（≈「流浪」「彷徨い」）。"
+
+  - category: song
+    ja: "回層浮"
+    zh: "《回層浮》"
+    aliases: ["かいそう", "Kaisou"]
+    note: "MyGO!!!!! 4th Single B 面（2024/03）。读作 かいそう（≈「回想」）。"
+
+  - category: song
+    ja: "焚音打"
+    zh: "《焚音打》"
+    aliases: ["たねび", "Tanebi"]
+    note: "当て字。读作 たねび（≈「焚火」「種火」），不是按汉字字面读。"
+
+  - category: song
+    ja: "迷路日々"
+    zh: "《迷路日々》"
+    aliases: ["メロディー", "メロディ", "めろでぃ", "Melody", "melody"]
+    note: "当て字。读作 メロディー（Melody）。迷路→メロ、日々→ディ。绝对不能按汉字字面译。"
+
+  - category: song
+    ja: "潜在表明"
+    zh: "《潜在表明》"
+    aliases: ["せんざいひょうめい", "Senzaihyoumei"]
+    note: "标准音读（せんざいひょうめい）。"
+
+  - category: song
+    ja: "無路矢"
+    zh: "《無路矢》"
+    aliases: ["のろし", "Noroshi"]
+    note: "当て字。读作 のろし（狼烟）。"
+
+  - category: song
+    ja: "過惰幻"
+    zh: "《過惰幻》"
+    aliases: ["あだゆめ", "Adayume"]
+    note: "当て字。读作 あだゆめ（≈「徒夢」/「仇夢」）。"
+
+  - category: song
+    ja: "栞"
+    zh: "《栞》"
+    aliases: ["しおり", "Shiori"]
+    note: "标准读法（しおり/书签）。"
+
+  - category: song
+    ja: "歩拾道"
+    zh: "《歩拾道》"
+    aliases: ["スピード", "スピイド", "すぴーど", "Speed"]
+    note: "当て字。读作 スピード（Speed）。"
+
+  - category: song
+    ja: "孤壊牢"
+    zh: "《孤壊牢》"
+    aliases: ["こころ", "Kokoro"]
+    note: "当て字。读作 こころ（≈「心」）。"
+
+  - category: song
+    ja: "処救生"
+    zh: "《処救生》"
+    aliases: ["こきゅう", "Kokyu", "Kokyuu"]
+    note: "当て字。读作 こきゅう（≈「呼吸」）。"
+
+  - category: song
+    ja: "輪符雨"
+    zh: "《輪符雨》"
+    aliases: ["リフレイン", "りふれいん", "Refrain"]
+    note: "当て字。读作 リフレイン（Refrain）。"
+
+  - category: song
+    ja: "端程山"
+    zh: "《端程山》"
+    aliases: ["パノラマ", "ぱのらま", "Panorama"]
+    note: "MyGO!!!!! 5th Single（2024/07）。当て字，读作 パノラマ（Panorama）。"
+
+  - category: song
+    ja: "霧周途"
+    zh: "《霧周途》"
+    aliases: ["ミスト", "みすと", "Mist"]
+    note: "当て字。读作 ミスト（Mist）。"
+
+  - category: song
+    ja: "夜隠染"
+    zh: "《夜隠染》"
+    aliases: ["よかぜ", "Yokaze"]
+    note: "当て字。读作 よかぜ（≈「夜風」）。"
+
+  - category: song
+    ja: "明弦音"
+    zh: "《明弦音》"
+    aliases: ["アゲイン", "あげいん", "Again"]
+    note: "当て字。读作 アゲイン（Again）。明=A, 弦=ge, 音=in。"
+
+  - category: song
+    ja: "エガクミライ"
+    zh: "《エガクミライ》"
+    aliases: ["えがくみらい", "Egakumirai", "描く未来", "描绘未来"]
+    note: "片假名标题。意思是「描く未来」（描绘未来）。"
+
+  - category: song
+    ja: "残痕字"
+    zh: "《残痕字》"
+    aliases: ["ページ", "ぺーじ", "Page"]
+    note: "当て字。读作 ページ（Page，书页）。"
+
+  - category: song
+    ja: "聿日箋秋"
+    zh: "《聿日箋秋》"
+    aliases: ["いちじつせんしゅう", "Ichijitsusenshu"]
+    note: "MyGO!!!!! 6th Single（2025/04）。读作 いちじつせんしゅう（来自成语「一日千秋」）。"
+
+  - category: song
+    ja: "往欄印"
+    zh: "《往欄印》"
+    aliases: ["おうらい", "Ourai", "往来"]
+    note: "MyGO!!!!! 7th Single（2025/08）。当て字，读作 おうらい（≈「往来」）。"
+
+  - category: song
+    ja: "掌心正銘"
+    zh: "《掌心正銘》"
+    aliases: ["しょうしんしょうめい", "Shoushinshoumei"]
+    note: "当て字。读作 しょうしんしょうめい（来自「正真正銘」）。"
+
+  - category: song
+    ja: "静降想"
+    zh: "《静降想》"
+    aliases: ["サイレント", "さいれんと", "Silent"]
+    note: "MyGO!!!!! 8th Single（2025/12）。当て字，读作 サイレント（Silent）。"
+
+  - category: song
+    ja: "歌いましょう鳴らしましょう"
+    zh: "《歌いましょう鳴らしましょう》"
+    aliases: ["うたいましょうならしましょう", "Utaimashou Narashimashou"]
+    note: "全平假名标题，无 ate-ji。"
+
+  # ────────── Albums ──────────
+  - category: album
+    ja: "迷跡波"
+    zh: "《迷跡波》"
+    aliases: ["めいせきは", "Meisekiha"]
+    note: "MyGO!!!!! 1st Album（2023/11）。读作 めいせきは。"
+
+  - category: album
+    ja: "跡暖空"
+    zh: "《跡暖空》"
+    aliases: ["みちのく", "Michinoku", "陸奥"]
+    note: "MyGO!!!!! 2nd Album（2024/12）。当て字，读作 みちのく（日本东北地方「陸奥」古称）。"
+
+  - category: album
+    ja: "致並跡"
+    zh: "《地平線》"
+    aliases: ["ちへいせん", "Chiheisen", "地平線", "地平线"]
+    note: "MyGO!!!!! 3rd Album（2026/07/15）。当て字，读作 ちへいせん（=「地平線」/地平线）。中文圈一般译作《地平线》。"
+
+  - category: quote
+    ja: "一生、バンドしてくれる？"
+    zh: "要和我组一辈子乐队吗？"
+    aliases: ["一生バンドしてくれる", "一辈子"]
+    note: "MyGO!!!!! 标志性台词；需要保留“一辈子”的重量。"
+  - category: quote
+    ja: "なんで春日影やったの！？"
+    zh: "为什么要演奏《春日影》！"
+    aliases: ["なんで春日影", "为什么要演奏春日影"]
+    note: "名场面台词；春日影必须加书名号。"
+
+  - category: concept
+    ja: "中の人"
+    zh: "中之人"
+    aliases: ["キャスト", "Cast", "声優"]
+    note: "广播里区分声优本人和角色时使用。"
+  - category: concept
+    ja: "ガルパ"
+    zh: "邦邦手游"
+    aliases: ["Girls Band Party!", "BanG Dream! Girls Band Party!"]
+    note: "如正式语境可译为《BanG Dream! 少女乐团派对！》。"
+  - category: concept
+    ja: "RiNG"
+    zh: "RiNG"
+    aliases: ["リング"]
+    note: "剧中 Live House 名称，保留英文。"
+
+post_corrections:
+  高松燈: 高松灯
+  高松 灯: 高松灯
+  高松 燈: 高松灯
+  千早愛音: 千早爱音
+  千早 愛音: 千早爱音
+  要楽奈: 要乐奈
+  要樂奈: 要乐奈
+  要 楽奈: 要乐奈
+  要 樂奈: 要乐奈
+  長崎そよ: 长崎爽世
+  長崎 爽世: 长崎爽世
+  長崎爽世: 长崎爽世
+  長崎 素世: 长崎爽世
+  长崎素世: 长崎爽世
+  椎名 立希: 椎名立希
+  羊宮妃那: 羊宫妃那
+  青木陽菜: 青木阳菜
+  豊川祥子: 丰川祥子
+  豊川 祥子: 丰川祥子
+  若葉睦: 若叶睦
+  若葉 睦: 若叶睦
+  三角初華: 三角初华
+  三角 初華: 三角初华
+  八幡海鈴: 八幡海铃
+  八幡 海鈴: 八幡海铃
+  祐天寺にゃむ: 祐天寺若麦
+  祐天寺 にゃむ: 祐天寺若麦
+  迷子中心: 迷子集会
+  迷子的迷子中心: 迷子的迷子集会
+  # マイゴセンター 发音梗的常见错译（节目名「迷子集会」本身的发音游戏）
+  MyGO!!!!!中心: 迷子集会
+  MyGO!!!!!的MyGO!!!!!中心: MyGO!!!!!的迷子集会
+  MyGO的MyGO中心: MyGO!!!!!的迷子集会
+  マイゴ中心: 迷子集会
+  マイゴセンター: 迷子集会
+  青木志貴: 青木阳菜
+  青木志贵: 青木阳菜
+  春日影子: 春日影
+  "《春日影子》": "《春日影》"
+  # MyGO!!!!! 歌曲名错译修复（当て字）
+  Melody: メロディー
+  迷路日子: 迷路日々
+  "《迷路日子》": "《迷路日々》"

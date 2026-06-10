@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>radio_kg · GraphRAG 问答</title>
+<style>
+  :root { --bg:#0f1115; --card:#1a1d24; --line:#2b2f3a; --fg:#e6e8ee; --mut:#9aa3b2;
+          --ok:#3fb950; --acc:#58a6ff; --gra:#d29922; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.7 -apple-system,system-ui,"Hiragino Sans","Microsoft YaHei",sans-serif;
+         background:var(--bg); color:var(--fg); }
+  header { padding:16px 24px; border-bottom:1px solid var(--line); display:flex; gap:14px; align-items:baseline; }
+  header h1 { font-size:17px; margin:0; } header a { color:var(--mut); font-size:13px; text-decoration:none; }
+  .wrap { max-width:820px; margin:0 auto; padding:24px; }
+  .ask { display:flex; gap:10px; }
+  .ask input { flex:1; background:#12151c; border:1px solid var(--line); color:var(--fg);
+               border-radius:10px; padding:12px 14px; font:inherit; }
+  .ask button { background:var(--acc); border:none; color:#06203f; font-weight:600;
+                border-radius:10px; padding:0 20px; cursor:pointer; }
+  .meta { color:var(--mut); font-size:13px; margin:14px 2px; }
+  .answer { background:var(--card); border:1px solid var(--line); border-radius:14px;
+            padding:20px 22px; font-size:16px; line-height:1.9; white-space:pre-wrap; }
+  .cite { display:inline-flex; align-items:center; justify-content:center; vertical-align:middle;
+          width:18px; height:18px; margin:0 2px; border-radius:50%; background:#10263a; color:var(--acc);
+          font-size:11px; cursor:help; position:relative; border:1px solid #1f4d77; }
+  .cite:hover .pop { opacity:1; transform:translateY(0); pointer-events:auto; }
+  .pop { position:absolute; bottom:140%; left:50%; transform:translate(-50%,6px); opacity:0; pointer-events:none;
+         transition:.15s; width:280px; background:#0b0e13; border:1px solid var(--acc); border-radius:10px;
+         padding:10px 12px; text-align:left; font-size:12.5px; line-height:1.55; color:var(--fg); z-index:10;
+         box-shadow:0 8px 24px rgba(0,0,0,.5); }
+  .pop .row { display:flex; gap:6px; margin:2px 0; }
+  .pop .k { color:var(--mut); flex:0 0 52px; } .pop .v { color:var(--ok); }
+  .pop:after { content:""; position:absolute; top:100%; left:50%; transform:translateX(-50%);
+               border:6px solid transparent; border-top-color:var(--acc); }
+  .src { margin-top:18px; }
+  .src summary { color:var(--mut); cursor:pointer; font-size:13px; }
+  .si { border:1px solid var(--line); border-radius:9px; padding:9px 11px; margin:8px 0; background:#12151c; }
+  .si .tag { font-size:11px; padding:1px 7px; border-radius:20px; margin-right:8px; }
+  .tag.graph { background:#3a2a12; color:var(--gra); } .tag.vector { background:#10263a; color:var(--acc); }
+  .tag.summary { background:#132d20; color:var(--ok); }
+  .si .cit { color:var(--mut); font-size:12px; margin-top:3px; }
+  .empty { color:var(--mut); }
+</style>
+</head>
+<body>
+<header>
+  <h1>radio_kg · GraphRAG 问答</h1>
+  <a href="/">→ 审批看板</a>
+  <a href="/radio">→ Radio 控制台</a>
+</header>
+<div class="wrap">
+  <div class="ask">
+    <input id="q" placeholder="例：羊宮妃那はどの事務所に所属している？ / 节目名为什么叫こもれびじかん？"
+           onkeydown="if(event.key==='Enter')run()">
+    <button onclick="run()">提问</button>
+  </div>
+  <div class="meta" id="meta"></div>
+  <div class="answer empty" id="answer">输入问题开始。答案中的 <span style="color:var(--acc)">🔍</span> 图标可悬停查看出处（期数 + 时间戳）。</div>
+  <details class="src" id="srcWrap" style="display:none">
+    <summary>融合来源</summary>
+    <div id="sources"></div>
+  </details>
+</div>
+
+<script>
+const $=(s)=>document.querySelector(s);
+function esc(s){ return (s||"").replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+function parseCitation(raw){
+  // 《节目》第N期 HH:MM:SS-HH:MM:SS  或  文件名 第X页/段
+  const m = raw.match(/《(.+?)》第(\d+)期\s*([\d:]+)?\s*-?\s*([\d:]+)?/);
+  if(m) return {program:m[1], episode:m[2], start:m[3]||"", end:m[4]||""};
+  return {program:"", episode:"", start:"", end:"", raw};
+}
+function popHTML(raw){
+  const c=parseCitation(raw);
+  if(!c.program) return `<span class="pop"><div class="row"><span class="k">出处</span><span class="v">${esc(raw)}</span></div></span>`;
+  const span = c.start ? (c.end?`${c.start} – ${c.end}`:c.start) : "—";
+  return `<span class="pop">
+     <div class="row"><span class="k">节目</span><span class="v">《${esc(c.program)}》</span></div>
+     <div class="row"><span class="k">期数</span><span class="v">第 ${c.episode} 期</span></div>
+     <div class="row"><span class="k">时间戳</span><span class="v">${esc(span)}</span></div>
+   </span>`;
+}
+
+function renderAnswer(text){
+  // 把 【出处:...】 替换为可悬停图标
+  const parts = text.split(/(【出[处処]:[^】]+】)/g);
+  return parts.map(seg=>{
+    const m = seg.match(/^【出[处処]:([^】]+)】$/);
+    if(m) return `<span class="cite">🔍${popHTML(m[1])}</span>`;
+    return esc(seg);
+  }).join("");
+}
+
+async function run(){
+  const q=$("#q").value.trim(); if(!q) return;
+  $("#answer").className="answer empty"; $("#answer").textContent="检索中…"; $("#meta").textContent=""; $("#srcWrap").style.display="none";
+  try{
+    const r=await fetch("/api/ask",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({question:q})});
+    const d=await r.json();
+    const qs=(d.search_queries&&d.search_queries.length)?d.search_queries.join(' | '):(d.search_query||'');
+    $("#meta").innerHTML=`锚点 <code>${esc((d.anchors||[]).join(' / '))}</code> · 检索式 <code>${esc(qs)}</code> · 图谱 ${d.graph_hits} / 向量 ${d.vector_hits} 条`;
+    $("#answer").className="answer"; $("#answer").innerHTML=renderAnswer(d.answer||"（无答案）");
+    if((d.sources||[]).length){
+      $("#srcWrap").style.display="block";
+      $("#sources").innerHTML=d.sources.map(s=>`<div class="si">
+        <span class="tag ${s.origin}">${s.origin==='graph'?'图谱事实':(s.origin==='summary'?'结构化摘要':'对话片段')}</span>${esc(s.text).slice(0,180)}
+        <div class="cit">出处：${esc(s.citation||'—')}</div></div>`).join("");
+    }
+  }catch(e){ $("#answer").className="answer"; $("#answer").textContent="出错："+e.message; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+id: mygo_meigo_shukai
+name: MyGO!!!!! 迷子集会
+description: MyGO!!!!!の「迷子集会」专用翻译与结构化复盘 prompt。
+terminology_path: config/terminology.yaml
+translation_prompt_path: translate.txt
+summary_prompt_path: summarize.txt
+segments_library_path: config/segments_library.yaml
+stt_prompt: 声優、ラジオ、MyGO!!!!!、迷子集会、羊宮妃那、青木陽菜、小日向美香、林鼓子、立石凛

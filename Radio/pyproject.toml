@@ -1,0 +1,60 @@
+[project]
+name = "radio-oshikatsu"
+version = "0.5.0"
+description = "自动录制 YouTube 直播 / 处理已有视频 → 双语逐字稿 + 高光摘要 → Telegram 推送"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    # HTTP / async
+    "httpx>=0.27",
+    "anyio>=4.4",
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "websockets>=12",
+    # Config
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "pyyaml>=6.0",
+    # LLM SDKs
+    "anthropic>=0.40",
+    "groq>=0.11",
+    # Existing video URL ingestion
+    "yt-dlp>=2024.8.6",
+    # Telegram
+    "python-telegram-bot>=21.0",
+    # Scheduler + SQLite JobStore（重启 daemon 后任务可恢复）
+    "apscheduler>=3.10",
+    "sqlalchemy>=2.0",
+    # Logging
+    "loguru>=0.7",
+    # Radiko 录制：用真浏览器拿 session 绕过 medialist 反爬
+    "playwright>=1.45",
+    # Bundled ffmpeg fallback for environments without Homebrew/system ffmpeg
+    "imageio-ffmpeg>=0.6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.6",
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/radio"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+ignore = ["E501"]  # line length handled by formatter
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

@@ -1,0 +1,8 @@
+id: general_seiyuu_radio
+name: 大众向声优节目
+description: 适合非特定企划的声优广播、访谈、活动回顾和粉丝向节目。
+terminology_path: config/terminology.yaml
+translation_prompt_path: translate.txt
+summary_prompt_path: summarize.txt
+segments_library_path: config/segments_library.yaml
+stt_prompt: 声優、ラジオ、アニメ、イベント、ライブ、メール、コーナー

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+Radio-Oshikatsu 守护进程的 macOS launchd 配置。
+
+安装步骤：
+  1. 路径已对齐合并后的位置 /Users/USERNAME/Agent/Radio（换机器请改下面所有 path）
+  2. 复制此文件到 ~/Library/LaunchAgents/com.user.radio-oshikatsu.plist
+     cp deploy/radio.plist ~/Library/LaunchAgents/com.user.radio-oshikatsu.plist
+  3. 加载并启动：
+     launchctl load ~/Library/LaunchAgents/com.user.radio-oshikatsu.plist
+     launchctl start com.user.radio-oshikatsu
+  4. 查看状态：
+     launchctl list | grep radio-oshikatsu
+  5. 停止 / 卸载：
+     launchctl unload ~/Library/LaunchAgents/com.user.radio-oshikatsu.plist
+
+KeepAlive 让进程崩溃时 launchd 自动重启；RunAtLoad 让 mac 重启后开机自启。
+
+注意：此 plist 只跑调度 daemon，是 agent-up.command 内置 start_scheduler_daemon 的
+「开机自启」替代方案。二者只用其一——若已加载此 launchd 任务，请用 AGENT_START_SCHEDULER=0
+启动 agent-up，避免两个 daemon 抢同一个 jobstore(data/scheduler.sqlite)。
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.user.radio-oshikatsu</string>
+
+    <!-- 启动命令：直接用项目 .venv 的 python 跑 daemon（与 agent-up 一致，不依赖 uv） -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/USERNAME/Agent/Radio/.venv/bin/python</string>
+        <string>scripts/main_daemon.py</string>
+        <string>--config</string>
+        <string>config/config.yaml</string>
+    </array>
+
+    <!-- 工作目录 -->
+    <key>WorkingDirectory</key>
+    <string>/Users/USERNAME/Agent/Radio</string>
+
+    <!-- 环境变量：让 uv 能找到 brew 安装的 ffmpeg / Python -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+
+    <!-- 开机自启 -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- 崩溃自动重启（带 throttle 防 crash loop） -->
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+
+    <!-- 日志：stdout/stderr 都进 data/logs/ -->
+    <key>StandardOutPath</key>
+    <string>/Users/USERNAME/Agent/Radio/data/logs/daemon.stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/USERNAME/Agent/Radio/data/logs/daemon.stderr.log</string>
+</dict>
+</plist>

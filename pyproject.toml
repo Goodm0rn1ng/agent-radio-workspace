@@ -1,0 +1,43 @@
+# Agent 工作区：Radio(生产) / radio_kg(消费) / clip(二创) 共用唯一 venv（Agent/.venv）。
+# - Radio 与 clip 是可安装包（editable，见 [tool.uv.sources]），任何进程直接 `import radio` / `import clip`。
+# - radio_kg 不是包（顶层模块名为 src/config，以 cwd=radio_kg 运行），其依赖直接声明在下方
+#   「radio_kg 依赖」块里；不要再用 requirements.txt。
+# - WhisperX/Parakeet 仍隔离在 clip/.venv_whisperx（会降级 torch/transformers），由子进程调用。
+# 同步：cd Agent && uv sync
+[project]
+name = "agent-workspace"
+version = "0.1.0"
+description = "Radio + radio_kg + clip 共用 venv 的工作区"
+requires-python = ">=3.13"
+dependencies = [
+    # 子项目（editable 安装）
+    "radio-oshikatsu",
+    "clip",
+    # ---- radio_kg 依赖（锁定现装版本，保证 Chroma/图谱/检查点数据兼容）----
+    "langgraph==1.2.1",
+    "langgraph-checkpoint-sqlite==3.1.0",
+    "mcp==1.27.1",
+    "chromadb==1.5.9",
+    "sentence-transformers==5.5.1",
+    "torch==2.12.0",
+    "transformers==5.9.0",
+    "anthropic>=0.40.0",
+    "openai>=1.55.0",
+    "fastapi>=0.115.0",
+    "uvicorn>=0.32.0",
+    "websockets>=12",
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.6.0",
+    "python-dotenv>=1.0.0",
+    "Pillow>=10.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["Radio", "clip"]
+
+[tool.uv.sources]
+radio-oshikatsu = { workspace = true }
+clip = { workspace = true }
