@@ -2,6 +2,29 @@
 
 本项目所有功能性的完善与新增都记录于此。日期为开发日期 (YYYY-MM-DD)。
 
+## 审批中断废除：LLM 上下文终审直接入库 + QA 延迟再降（~15.7s→~9-11s，重复问 0.04s）— 2026-06-13
+
+### Changed｜入库审批从「人工确认」改为「LLM 上下文终审」（用户决策）
+- 背景：/api/pending 实测 27 项积压里 26 项是 no-op（建议名=原名），人工甄别在大量文本涌入时不可行。
+- `InspectorAgent` 新增 `adjudicate()`：对前置审核拿不准的高风险项做第二次 LLM 裁决，上下文比初审更全——**节目逐字稿原文片段**（新增 `transcript_excerpt()` 按三元组时间窗 ±45s 截取）+ 历史图谱关联 + 行业词典 + 初审疑点。裁决 accept_correction（可给出比建议更准的 final_triplet）/ keep_original / drop，结果直接入库；LLM 失败时 fail-open 保留原文（不丢转写事实）。
+- `InspectorAgent` 新增 `adjudicate_conflicts()`：单值关系冲突（如『担当する』新旧环节不一致）同样带逐字稿上下文裁决 confirm（保留历史线）/ overwrite / ignore；失败时 fail-safe 为 ignore（图谱不变）。
+- `ingestion_graph.py`：inspect_node 与 sync_node 的 `interrupt()` 全部移除，改调上述裁决直写；裁决结果以 `severity=adjudicated_*` 记入 inspection_issues、`resolution/resolution_reason` 记入 conflicts 留审计痕迹（models.py severity Literal 扩展）。`auto_policy` 仅保留对 sync 冲突的快捷路径。
+- 积压清理：15 条挂起线程（5/30 起）经 `/api/resume`（空决策，重入新裁决流程）入库，pending 清零。dashboard 待办卡片今后不再产生。
+- Fixed（清理首轮发现）：`adjudicate_conflicts` 给 `relationship_object_counts` 传了字符串 relation（签名要求 `list[str]`），Cypher `$terms = []` 类型不匹配致 5 条含冲突的线程 500；改传 `[conflict.relation]` 后重跑成功。
+
+### Changed｜QA 链路 LLM 调用优化（实测瓶颈：route 2.6s + analyze 3.7s + 生成+核查 9.0s 串行）
+- **route ∥ analyze 并行**（`app.py`）：`_run_qa` 以线程池预取 `QA_AGENT.analyze`，与 `STATS_AGENT.route` 并行；`qa_graph2.analyze` 节点检测到上游已传 search_queries 时跳过 LLM。省 ~2.6s，质量零影响（stats/dossier 路由时 analyze 结果丢弃）。
+- **verify 本地预核**（`qa_agent._verify_facts`）：引用图谱事实（入库前已审计）的 fact 与「字符 bigram 包含度 ≥0.65」的 fact 本地免核，仅存疑事实送 LLM；全部免核时跳过整次 verify 调用（省 ~3-4s）。跨语种/改写事实仍走 LLM 判定，防编造红线不动。
+- **答案缓存**（`app.py`）：首轮问题（无会话历史）按「归一化问题 + index_version 注册表 mtime」键控缓存 128 条；任何入库都会重戳注册表自然失效，KB 订正路径显式 `clear()`。重复提问 0.04s 返回。
+- Verified（线上）：stats 确定性路径 0.13s；检索路径热态 ~9-11s（原 ~15.7s）；重复问 0.04s；放送日期/事务所/吉他话题答案正确带出处；弃答行为仅在资料确实不足时出现。冒烟测试：裁决三态映射、final_triplet 覆写、逐字稿注入、两处 fail-safe、verify 预核免调用/存疑仍判、跨语种回退全部通过。
+
+## 性能优化：检索热路径提速 47%（769ms→408ms）+ e5 模型去重 — 2026-06-13
+
+- **Changed｜e5 模型进程内共享**（`src/embeddings/e5.py`）：原来每个 `VectorStore` 实例各自 `E5Embedder` 各自加载一份 SentenceTransformer——server 持有 5 个 store（chunks/summaries/insights/mail/retriever 复用），权重最多重复加载 5 份（每份 ~0.5GB 内存 + 数秒加载）。改为模块级 `_MODEL_CACHE` 按模型名共享单例（双检锁线程安全），全进程只加载一次。
+- **Added｜查询向量 LRU 缓存**（同文件）：同一 QA 请求里相同 search_query 会在 summary 库与 chunk 库各编码一次；跨请求重复提问亦然。`encode_queries` 增加 (model, text)→vec 的 512 条 LRU 记忆，批量调用混合命中/未命中保持顺序正确。
+- **Added｜全量扫描缓存**（`src/mcp_layer/vector_store.py`）：`keyword_query`/`distinct_labels` 依赖的 `_get_all_documents()` 每次问答都把全集合 2700+ 文档从 Chroma 拉一遍（实测单次 ~349ms，且每问触发多次）。增加按 (collection uuid, count) 键控的记忆——`add_chunks`/`reset_collection` 显式失效，外部重建（uuid 变）或他进程写入（count 变）自动失效；命中 0.4ms。
+- Verified：bench_perf 混合检索 mean **769ms→408ms**、p95 923ms→475ms（目标 <2s）；MCP 调用仍全数达标。冒烟测试通过：模型单例、缓存向量与直接编码 allclose、混合批次顺序、keyword_query 结果正常。`agent-up` 重启后 `/api/health` 全绿，线上 `/api/ask2` 端到端回答正确带出处。
+
 ## clip 节目方案支持 stt_prompt 覆盖 — 2026-06-10
 
 - **Added**：`clip/programs/<id>.yaml` 的 `processing.stt_prompt` 可按节目替换全局 Whisper prompt；

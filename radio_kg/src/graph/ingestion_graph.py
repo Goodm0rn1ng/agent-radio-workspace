@@ -1,16 +1,16 @@
 """LangGraph ingestion state machine: parse -> index -> extract -> inspect -> sync.
 
-The sync node raises an interrupt() when single-valued conflicts need a human
-decision (PRD 2.1 / 4.3). With a checkpointer the run pauses; the CLI collects
-decisions and resumes via Command(resume=...). An `auto_policy` short-circuits
-the interrupt for unattended batch ingestion.
+High-risk inspection doubts and single-valued conflicts are no longer paused
+for human approval: a second LLM pass (InspectorAgent.adjudicate /
+adjudicate_conflicts) re-judges each one with the transcript excerpt + graph
+history and the ruling is applied directly. An `auto_policy` still
+short-circuits conflict adjudication for unattended batch ingestion.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 
 from langgraph.graph import END, START, StateGraph
-from langgraph.types import interrupt
 
 from src import canonical
 from src.agents.annotator_agent import AnnotatorAgent
@@ -101,36 +101,22 @@ def build_ingestion_graph(deps: Deps, checkpointer):
             if result.triple is not None:
                 checked.append(result.triple.model_dump())
 
-        if pending and deps.auto_policy:
-            # unattended batch: keep the original extraction for high-risk items
-            # (conservative — do not auto-apply low-confidence corrections)
-            for result in pending:
-                if result.triple is not None:
-                    checked.append(result.triple.model_dump())
-            pending = []
-
         if pending:
-            payload = []
-            for result in pending:
-                issue = result.issues[-1].model_dump()
-                issue["original_triple"] = result.triple.model_dump() if result.triple else None
-                issue["suggested_triple"] = (
-                    result.suggested_triple.model_dump()
-                    if result.suggested_triple else None
-                )
-                payload.append(issue)
-
-            decisions = interrupt({"inspection_issues": payload})
-            for result, decision in zip(pending, decisions):
-                if decision == "accept_correction" and result.suggested_triple is not None:
-                    checked.append(result.suggested_triple.model_dump())
-                elif decision == "keep_original" and result.triple is not None:
-                    checked.append(result.triple.model_dump())
-                else:
-                    issue = result.issues[-1]
+            # No human interrupt: a second LLM pass re-judges each doubt with
+            # the full transcript excerpt + graph history and the ruling is
+            # applied directly (审批队列废除 — 上下文终审后直接入库).
+            rulings = deps.inspector.adjudicate(pending, state["chunks"])
+            for result, (decision, final, reason) in zip(pending, rulings):
+                issue = result.issues[-1]
+                issue.severity = f"adjudicated_{decision}"
+                issue.reason = reason or issue.reason
+                issues.append(issue.model_dump())
+                if decision == "drop":
                     dropped.append(
-                        f"inspection_ignored: {issue.original_name} -> {issue.suggested_name}"
+                        f"inspection_dropped: {issue.original_name} ({reason})"
                     )
+                elif final is not None:
+                    checked.append(final.model_dump())
 
         return {
             "inspected_triples": checked,
@@ -160,13 +146,19 @@ def build_ingestion_graph(deps: Deps, checkpointer):
                 "conflicts": [c.model_dump() for c, _ in pending],
             }
 
-        # human-in-the-loop: pause for decisions
-        decisions = interrupt({"conflicts": [c.model_dump() for c, _ in pending]})
-        for (c, t), d in zip(pending, decisions):
-            deps.sync.resolve(c, d, t)
+        # No human interrupt: contextual LLM ruling per conflict
+        # (confirm=保留历史线 / overwrite=覆盖旧值 / ignore=丢弃新值), applied directly.
+        rulings = deps.inspector.adjudicate_conflicts(pending, state["chunks"])
+        out_conflicts = []
+        for (c, t), (decision, reason) in zip(pending, rulings):
+            deps.sync.resolve(c, decision, t)
+            d = c.model_dump()
+            d["resolution"] = decision
+            d["resolution_reason"] = reason
+            out_conflicts.append(d)
         return {
-            "written": [f"{written} edges, {len(pending)} resolved"],
-            "conflicts": [c.model_dump() for c, _ in pending],
+            "written": [f"{written} edges, {len(pending)} adjudicated"],
+            "conflicts": out_conflicts,
         }
 
     g = StateGraph(PipelineState)

@@ -41,6 +41,9 @@ class VectorStore:
         self._direct_collection = None
         self._embedder = None
         self._mcp = None
+        # full-dump memo for keyword_query/distinct_labels — keyed by
+        # (collection uuid, count) so external rebuilds or new writes invalidate
+        self._all_docs_cache: tuple[tuple, dict] | None = None
         if self.embedding_model != "default":
             return
         data_dir = str(settings.abspath(settings.chroma_path))
@@ -131,6 +134,7 @@ class VectorStore:
 
     def reset_collection(self):
         """Drop and recreate the active collection."""
+        self._all_docs_cache = None
         if self._uses_direct_chroma:
             if self._direct_client is None:
                 self._ensure_direct_collection()
@@ -159,6 +163,7 @@ class VectorStore:
     def add_chunks(self, ids: list[str], documents: list[str], metadatas: list[dict]):
         if not ids:
             return
+        self._all_docs_cache = None
         if self._uses_direct_chroma:
             embeddings = self._embedder.encode_passages(documents)
             clean_metas = [self._clean(m) for m in metadatas]
@@ -224,9 +229,22 @@ class VectorStore:
 
     def _get_all_documents(self) -> dict:
         if self._uses_direct_chroma:
-            return self._safe_direct_call(
+            # Pulling every doc+meta out of chroma costs tens of ms and runs
+            # on every keyword_query (i.e. every QA request, several times).
+            # Memoize on (collection uuid, count): add_chunks/reset invalidate
+            # explicitly; external rebuilds change the uuid; new writes from
+            # another process change the count.
+            cache_key = (
+                str(getattr(self._direct_collection, "id", "")),
+                self._safe_direct_call(lambda c: c.count()),
+            )
+            if self._all_docs_cache and self._all_docs_cache[0] == cache_key:
+                return self._all_docs_cache[1]
+            data = self._safe_direct_call(
                 lambda c: c.get(include=["documents", "metadatas"])
             )
+            self._all_docs_cache = (cache_key, data)
+            return data
         return self._mcp.call_tool(
             "chroma_get_documents",
             {

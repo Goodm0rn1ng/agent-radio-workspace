@@ -39,6 +39,9 @@ class QADeps2:
 
 def build_two_stage_qa_graph(deps: QADeps2):
     def analyze(state: QA2State) -> dict:
+        # precomputed upstream (run in parallel with routing) — skip the LLM call
+        if state.get("search_queries"):
+            return {}
         return deps.qa.analyze(state["question"])
 
     def retrieve2(state: QA2State) -> dict:

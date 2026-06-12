@@ -95,7 +95,12 @@ class Conflict(BaseModel):
 class InspectionIssue(BaseModel):
     """Raised by InspectorAgent when a triple may contain ASR / hallucination noise."""
 
-    severity: Literal["auto_corrected", "review_required", "warning"]
+    severity: Literal[
+        "auto_corrected", "review_required", "warning",
+        # final LLM adjudication outcomes (no human interrupt)
+        "adjudicated_accept_correction", "adjudicated_keep_original",
+        "adjudicated_drop",
+    ]
     issue_type: str                  # domain_vocab / phonetic / graph_frequency
     entity_role: Literal["subject", "object"]
     relation: str

@@ -1,9 +1,10 @@
-"""Approval dashboard backend (PRD 4.3).
+"""Ingestion + QA backend (PRD 4.3 修订).
 
 A long-lived FastAPI service holding one ingestion graph + live MCP stores +
-checkpointer, so LangGraph `interrupt()` / `Command(resume=...)` happen in-process.
-Ingestion runs WITHOUT auto_policy here, so both conflict and inspection
-interrupts surface as pending cards for human decision.
+checkpointer. Inspection doubts and sync conflicts are adjudicated in-graph by
+a second contextual LLM pass and written directly — no human interrupts; the
+/api/pending + /api/resume endpoints remain only to drain legacy suspended
+threads from before the change.
 
 Run:  .venv/bin/python -m uvicorn src.server.app:app --port 8000
 """
@@ -15,6 +16,8 @@ import queue
 import sys
 import threading
 import time
+from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
 from pathlib import Path
 from uuid import uuid4
@@ -444,8 +447,45 @@ def _pack(passages):
             for p in (passages or [])]
 
 
+# answer memo for repeated first-turn questions. Keyed on the normalized
+# question + the index registry's mtime token, so any ingest (which re-stamps
+# the registry) naturally invalidates every cached answer.
+_ANSWER_CACHE: OrderedDict[tuple, dict] = OrderedDict()
+_ANSWER_CACHE_CAP = 128
+# overlaps the routing LLM call with the analyze LLM call (both ~3s, serial
+# before; the analyze result is simply discarded on stats/dossier routes)
+_QA_PREFETCH = ThreadPoolExecutor(max_workers=2, thread_name_prefix="qa-prefetch")
+
+
+def _index_token() -> int:
+    try:
+        return index_version.REGISTRY_PATH.stat().st_mtime_ns
+    except OSError:
+        return 0
+
+
 def _run_qa(question: str, history: list[dict] | None = None,
             progress=None) -> dict:
+    """Cached wrapper around _run_qa_uncached (first-turn questions only —
+    follow-ups depend on conversation history)."""
+    if history:
+        return _run_qa_uncached(question, history, progress)
+    key = (" ".join(question.split()), _index_token())
+    hit = _ANSWER_CACHE.get(key)
+    if hit is not None:
+        _ANSWER_CACHE.move_to_end(key)
+        log.info("qa_cache_hit", extra={"q_len": len(question)})
+        return dict(hit)
+    result = _run_qa_uncached(question, None, progress)
+    if result.get("answer"):
+        _ANSWER_CACHE[key] = dict(result)
+        while len(_ANSWER_CACHE) > _ANSWER_CACHE_CAP:
+            _ANSWER_CACHE.popitem(last=False)
+    return result
+
+
+def _run_qa_uncached(question: str, history: list[dict] | None = None,
+                     progress=None) -> dict:
     """Shared QA: route stats vs two-stage retrieval. `history` enables multi-turn.
 
     `progress` is an optional callable(text) used by the streaming endpoint to
@@ -456,6 +496,7 @@ def _run_qa(question: str, history: list[dict] | None = None,
     emit = progress or (lambda _text: None)
     standalone = QA_AGENT.contextualize(history, question) if history else question
     emit("规划检索策略…")
+    analysis_future = _QA_PREFETCH.submit(QA_AGENT.analyze, standalone)
     route = STATS_AGENT.route(standalone)
     if route["kind"] == "dossier":
         emit(f"调取「{route['name']}」的全部记录…")
@@ -478,11 +519,16 @@ def _run_qa(question: str, history: list[dict] | None = None,
                     "mode": "stats", "tool": r.get("tool")}
         # no safe stats tool matched → fall back to normal retrieval
     emit("检索资料中…")
+    try:
+        analysis = analysis_future.result()
+    except Exception:  # noqa: BLE001 — analyze 失败由图内节点重试/兜底
+        analysis = {}
     # stream the two-stage graph node-by-node so the streaming endpoint can
     # report retrieval vs. generation progress; accumulating per-node updates
     # reconstructs the same final state as .invoke().
     result: dict = {}
-    for upd in QA2_GRAPH.stream({"question": standalone, "history": history or []}):
+    for upd in QA2_GRAPH.stream({"question": standalone, "history": history or [],
+                                 **analysis}):
         for node, out in upd.items():
             if out:
                 result.update(out)
@@ -620,6 +666,7 @@ def kb_confirm(cid: str, req: KbConfirmReq):
         return {"status": "cancelled", "answer": content, "conversation": CONVS.get(cid)}
     with _RW.writer():
         results = MEMORY_AGENT.apply(entry["ops"])
+    _ANSWER_CACHE.clear()   # KB edits change answers without re-stamping indices
     log.info("kb_applied", extra={"edit_id": req.edit_id, "conv_id": cid,
                                   "n_ops": len(entry["ops"])})
     lines = [f"{MemoryAgent.preview_line(o)} — {o['status']}" for o in results]

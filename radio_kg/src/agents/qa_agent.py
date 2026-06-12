@@ -217,10 +217,11 @@ class QAAgent:
         """
         if not passages:
             return {"answer": "资料からは確認できません（未检索到相关内容）。", "facts": [], "dropped": 0}
-        # index -> (citation, text); same numbering as build_context ([1..N])
-        idx = {i: (p.citation or "", p.text or "") for i, p in enumerate(passages, 1)}
+        # index -> (citation, text, origin); same numbering as build_context ([1..N])
+        idx = {i: (p.citation or "", p.text or "", getattr(p, "origin", ""))
+               for i, p in enumerate(passages, 1)}
         context = "\n".join(
-            f"[{i}] SOURCE: {cit or '出处不明'}\n{txt}" for i, (cit, txt) in idx.items()
+            f"[{i}] SOURCE: {cit or '出处不明'}\n{txt}" for i, (cit, txt, _o) in idx.items()
         )
         convo = self._format_history(history)
         prefix = f"【会话历史】\n{convo}\n\n" if convo else ""
@@ -261,18 +262,47 @@ class QAAgent:
     def _verify_facts(self, candidates: list[dict], idx: dict) -> list[dict]:
         """Batched fact-check: drop facts not actually supported by their cited
         passage. On verifier failure, keep structurally-valid facts (fail-open)
-        so a flaky judge call doesn't blank a good answer."""
-        items = []
+        so a flaky judge call doesn't blank a good answer.
+
+        Local pre-pass (no LLM): a fact citing a graph passage (audited before
+        ingest) or lexically contained in its source passage is auto-supported;
+        only the remaining ambiguous facts go to the LLM judge. When nothing is
+        ambiguous the verify call is skipped entirely (~3-4s saved)."""
+        supported = {}
+        ambiguous: list[tuple[int, dict]] = []
         for i, c in enumerate(candidates):
-            src_text = idx.get(c["source_id"], ("", ""))[1][:1200]
-            items.append({"id": i, "fact": c["fact"], "source_text": src_text})
-        payload = "\n\n".join(
-            f"[{it['id']}] 事实：{it['fact']}\n来源原文：{it['source_text']}" for it in items)
-        try:
-            res = self.llm.complete_json(VERIFY_STRUCT_SYSTEM, payload, max_tokens=1024)
-            supported = {int(r["id"]): bool(r.get("supported"))
-                         for r in res.get("results", []) if "id" in r}
-        except (LLMError, ValueError, TypeError):
-            return candidates  # fail-open
-        keep = [c for i, c in enumerate(candidates) if supported.get(i, True)]
-        return keep
+            _cit, src_text, origin = idx.get(c["source_id"], ("", "", ""))
+            if origin == "graph" or self._lexically_supported(c["fact"], src_text):
+                supported[i] = True
+            else:
+                ambiguous.append((i, c))
+        if ambiguous:
+            items = []
+            for i, c in ambiguous:
+                src_text = idx.get(c["source_id"], ("", "", ""))[1][:1200]
+                items.append({"id": i, "fact": c["fact"], "source_text": src_text})
+            payload = "\n\n".join(
+                f"[{it['id']}] 事实：{it['fact']}\n来源原文：{it['source_text']}" for it in items)
+            try:
+                res = self.llm.complete_json(VERIFY_STRUCT_SYSTEM, payload, max_tokens=1024)
+                for r in res.get("results", []):
+                    if "id" in r:
+                        supported[int(r["id"])] = bool(r.get("supported"))
+            except (LLMError, ValueError, TypeError):
+                return candidates  # fail-open
+        return [c for i, c in enumerate(candidates) if supported.get(i, True)]
+
+    @staticmethod
+    def _lexically_supported(fact: str, source: str, threshold: float = 0.65) -> bool:
+        """Char-bigram containment: True when most of the fact's content already
+        appears verbatim in its source passage (no paraphrase judgment needed).
+        Cross-lingual facts (zh fact / ja source) rarely pass and fall through
+        to the LLM judge."""
+        import re
+        norm = lambda s: re.sub(r"[\s。、，．,.!！?？:：;；「」『』()（）【】\[\]]+", "", s)  # noqa: E731
+        f, s = norm(fact), norm(source)
+        if len(f) < 6 or not s:
+            return False
+        bigrams = {f[i:i + 2] for i in range(len(f) - 1)}
+        hit = sum(1 for b in bigrams if b in s)
+        return hit / len(bigrams) >= threshold
