@@ -10,6 +10,7 @@ Run:  .venv/bin/python -m uvicorn src.server.app:app --port 8000
 """
 from __future__ import annotations
 
+import contextvars
 import json
 import os
 import queue
@@ -57,6 +58,7 @@ from src.build_persona import INSIGHTS_COLLECTION, MAIL_COLLECTION
 from src.graph.ingestion_graph import Deps, build_ingestion_graph
 from src.graph.qa_graph import QADeps, build_qa_graph
 from src.graph.qa_graph2 import QADeps2, build_two_stage_qa_graph
+from src.llm import cost
 from src.ingest import select_folders
 from src import index_version
 from src.source_data import iter_collections
@@ -486,6 +488,14 @@ def _run_qa(question: str, history: list[dict] | None = None,
 
 def _run_qa_uncached(question: str, history: list[dict] | None = None,
                      progress=None) -> dict:
+    """Cost-tracked wrapper: every LLM call this QA fans out into is attributed
+    to one "output" row in the cost ledger (tokens + time + estimated USD)."""
+    with cost.track("qa", title=question):
+        return _run_qa_core(question, history, progress)
+
+
+def _run_qa_core(question: str, history: list[dict] | None = None,
+                 progress=None) -> dict:
     """Shared QA: route stats vs two-stage retrieval. `history` enables multi-turn.
 
     `progress` is an optional callable(text) used by the streaming endpoint to
@@ -496,7 +506,9 @@ def _run_qa_uncached(question: str, history: list[dict] | None = None,
     emit = progress or (lambda _text: None)
     standalone = QA_AGENT.contextualize(history, question) if history else question
     emit("规划检索策略…")
-    analysis_future = _QA_PREFETCH.submit(QA_AGENT.analyze, standalone)
+    # copy_context so the prefetch thread's LLM call is attributed to this output
+    analysis_future = _QA_PREFETCH.submit(
+        contextvars.copy_context().run, QA_AGENT.analyze, standalone)
     route = STATS_AGENT.route(standalone)
     if route["kind"] == "dossier":
         emit(f"调取「{route['name']}」的全部记录…")
@@ -561,7 +573,7 @@ def ask(req: AskReq):
 def ask2(req: AskReq):
     """Two-stage (coarse summary route -> fine window) QA."""
     log.info("ask2", extra={"q_len": len(req.question or "")})
-    with _RW.reader():
+    with _RW.reader(), cost.track("qa", title=req.question):
         result = QA2_GRAPH.invoke({"question": req.question})
     fused = result.get("fused", [])
     return {

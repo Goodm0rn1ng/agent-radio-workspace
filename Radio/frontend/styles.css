@@ -1,12 +1,13 @@
+/* 值与 回声工作台 统一设计令牌（radio_kg /static/theme.css）保持一致 */
 :root {
   color-scheme: light;
-  --bg: #fafafa;
+  --bg: #faf9f5;
   --surface: #ffffff;
-  --surface-soft: #f4f4f2;
-  --ink: #1a1a1a;
-  --muted: #727272;
-  --line: #e5e5e2;
-  --line-strong: #d6d6d1;
+  --surface-soft: #f3f1ea;
+  --ink: #26241f;
+  --muted: #7d786c;
+  --line: #e7e3d9;
+  --line-strong: #d7d2c5;
   --accent: #667461;
   --accent-ink: #ffffff;
   --danger: #9f3535;

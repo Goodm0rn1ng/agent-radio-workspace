@@ -31,6 +31,7 @@ radio_kg/data/*.sqlite
 radio_kg/data/*.sqlite-*
 radio_kg/data/*.pid
 radio_kg/data/*.log
+radio_kg/data/cost_ledger.jsonl
 radio_kg/data/chroma/
 radio_kg/data/pending/
 radio_kg/data/logs/

@@ -3,49 +3,56 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>直播录制和切片</title>
+<title>回声工作台 · 直播切片</title>
+<link rel="stylesheet" href="/static/theme.css">
 <style>
-  :root { --bg:#f3f7f3; --card:#fff; --line:#dfe7df; --accent:#5b9a6f; --ink:#243; --mut:#789; }
+  :root { --bg:var(--k-bg); --card:var(--k-surface); --line:var(--k-line); --accent:var(--k-acc);
+          --ink:var(--k-ink); --mut:var(--k-mut); }
   * { box-sizing:border-box; }
-  body { margin:0; font:14px/1.6 -apple-system,"PingFang SC",sans-serif; background:var(--bg); color:var(--ink); }
-  header { display:flex; align-items:center; gap:12px; padding:14px 20px; background:var(--card); border-bottom:1px solid var(--line); }
-  header a { color:var(--mut); text-decoration:none; font-size:13px; }
-  header h1 { font-size:17px; margin:0; }
+  body { margin:0; font:14px/1.6 var(--k-font); background:var(--bg); color:var(--ink); }
+  header { display:flex; align-items:baseline; gap:12px; padding:14px 24px; background:var(--card); border-bottom:1px solid var(--line); }
+  header h1 { font-size:16px; margin:0; font-weight:650; }
   .wrap { max-width:1100px; margin:0 auto; padding:18px; display:grid; gap:18px; grid-template-columns:1fr 1fr; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; }
-  .card h2 { margin:0 0 12px; font-size:15px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:var(--k-radius); padding:16px; }
+  .card h2 { margin:0 0 12px; font-size:15px; font-weight:650; }
   .full { grid-column:1 / -1; }
   label { display:block; font-size:12px; color:var(--mut); margin:8px 0 3px; }
-  input,select { width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:8px; font-size:13px; }
+  input,select { width:100%; padding:8px 10px; border:1px solid var(--k-line-strong); border-radius:8px; font-size:13px;
+                 background:var(--card); color:var(--ink); }
   .row { display:flex; gap:10px; } .row > * { flex:1; }
-  button { background:var(--accent); color:#fff; border:0; border-radius:8px; padding:9px 14px; cursor:pointer; font-size:13px; }
-  button.ghost { background:#eef3ee; color:var(--ink); border:1px solid var(--line); }
-  .chip { display:inline-flex; align-items:center; gap:6px; background:#eef4ef; border:1px solid var(--line); border-radius:999px; padding:3px 10px; margin:3px 4px 3px 0; font-size:12px; }
-  .chip b { cursor:pointer; color:#c66; }
+  button { background:var(--accent); color:var(--k-acc-ink); border:0; border-radius:8px; padding:9px 14px; cursor:pointer; font-size:13px; }
+  button:hover { background:var(--k-acc-deep); }
+  button.ghost { background:var(--k-soft); color:var(--ink); border:1px solid var(--line); }
+  button.ghost:hover { background:var(--k-hover); }
+  .chip { display:inline-flex; align-items:center; gap:6px; background:var(--k-acc-soft); border:1px solid transparent; border-radius:999px; padding:3px 10px; margin:3px 4px 3px 0; font-size:12px; }
+  .chip b { cursor:pointer; color:var(--k-bad); }
   table { width:100%; border-collapse:collapse; font-size:12.5px; }
   th,td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); }
   th { color:var(--mut); font-weight:600; }
   td.num { text-align:right; font-variant-numeric:tabular-nums; }
   .mut { color:var(--mut); font-size:12px; }
-  .factor { border:1px solid var(--line); border-radius:8px; padding:8px 10px; margin:6px 0; }
+  .factor { border:1px solid var(--line); border-radius:8px; padding:8px 10px; margin:6px 0; background:var(--k-soft); }
   .factor .kw { color:var(--accent); font-size:12px; }
-  .song { color:#b5651d; }
+  .song { color:var(--k-sun); }
   .job { font-size:12px; padding:6px 8px; border-bottom:1px solid var(--line); }
-	  .pill { font-size:11px; padding:1px 7px; border-radius:999px; background:#eef4ef; }
-	  .recbox { border:1px solid var(--line); border-radius:8px; padding:8px 10px; margin:10px 0; background:#fbfdfb; }
+	  .pill { font-size:11px; padding:1px 7px; border-radius:999px; background:var(--k-acc-soft); color:var(--k-acc); }
+	  .recbox { border:1px solid var(--line); border-radius:8px; padding:8px 10px; margin:10px 0; background:var(--k-sun-soft); }
 	  .recbox b { font-size:13px; }
 	  #pv_table td { vertical-align:top; }
-  #pv_table input { width:100%; padding:4px 6px; border:1px solid var(--line); border-radius:6px; font-size:12.5px; margin:1px 0; }
-  #pv_table input.zh { color:#b5651d; }
-  #pv_table tr.active { background:#eef7f0; }
+  #pv_table input { width:100%; padding:4px 6px; border:1px solid var(--k-line-strong); border-radius:6px; font-size:12.5px; margin:1px 0; }
+  #pv_table input.zh { color:var(--k-sun); }
+  #pv_table tr.active { background:var(--k-acc-soft); }
   #pv_table td.t { cursor:pointer; color:var(--accent); font-variant-numeric:tabular-nums; white-space:nowrap; }
-  #pv_table tr.songrow td.t { color:#b5651d; }
+  #pv_table tr.songrow td.t { color:var(--k-sun); }
+  a { color:var(--accent); }
 </style>
 </head>
 <body>
+<nav data-knav="clipper"></nav>
+<script src="/static/knav.js" defer></script>
 <header>
-  <a href="/">← 主页</a>
-  <h1>🎬 直播录制和切片</h1>
+  <h1>直播切片</h1>
+  <span class="mut">VTuber 直播下载 · 热点驱动选题 · 自动切片字幕</span>
   <span class="mut" id="hint"></span>
 </header>
 <div class="wrap">
@@ -81,13 +88,21 @@
 
   <!-- (3) 近期热点 -->
   <div class="card full">
-    <h2>③ 最近可能火爆的因素 & 涨播放最快的视频
+    <h2>③ 近期热点（全站 + 圈内）& 爆火因素
       <button class="ghost" style="float:right" onclick="loadTrends(true)">刷新</button></h2>
     <div id="factors"></div>
-    <div style="overflow:auto;margin-top:10px">
-      <table id="vtab"><thead><tr>
+    <h3 style="margin:14px 0 4px">🔥 全站热点 <span class="mut">综合热门 · 不限圈子（看是否错过出圈热点）</span></h3>
+    <div style="overflow:auto">
+      <table id="vtab_broad"><thead><tr>
         <th>#</th><th>分区</th><th>标题</th><th class="num">动量(播/时)</th><th class="num">播放</th>
-        <th class="num">投币</th><th class="num">弹幕</th><th class="num">时长(h)</th>
+        <th class="num">投币</th><th class="num">弹幕</th>
+      </tr></thead><tbody></tbody></table>
+    </div>
+    <h3 style="margin:16px 0 4px">🎯 圈内热点 <span class="mut">VTuber / 歌枠 / バンドリ / 声優 相关</span></h3>
+    <div style="overflow:auto">
+      <table id="vtab_niche"><thead><tr>
+        <th>#</th><th>分区</th><th>标题</th><th class="num">动量(播/时)</th><th class="num">播放</th>
+        <th class="num">投币</th><th class="num">弹幕</th>
       </tr></thead><tbody></tbody></table>
     </div>
     <div class="mut" id="tmeta" style="margin-top:6px"></div>
@@ -285,14 +300,16 @@ async function loadTrends(force){
     ${f.hot_songs&&f.hot_songs.length?` <span class="song">🎵 ${f.hot_songs.join(' / ')}</span>`:''}
     <div class="kw">${(f.keywords||[]).join(' · ')}</div>
     <div class="mut">${f.hook||''}</div></div>`).join('') || '<span class="mut">暂无</span>';
-  const tb=$('#vtab tbody');
-  tb.innerHTML=(d.videos||[]).map((v,i)=>`<tr>
-    <td>${i+1}</td><td>${v.partition}</td>
-    <td><a href="${v.url}" target="_blank">${v.title}</a><div class="mut">${v.owner}</div></td>
+  const row=(v,i)=>`<tr>
+    <td>${i+1}</td><td>${esc(v.partition)}</td>
+    <td><a href="${v.url}" target="_blank">${esc(v.title)}</a><div class="mut">${esc(v.owner)}</div></td>
     <td class="num">${v.momentum.toLocaleString()}</td><td class="num">${v.view.toLocaleString()}</td>
-    <td class="num">${v.coin.toLocaleString()}</td><td class="num">${v.danmaku.toLocaleString()}</td>
-    <td class="num">${v.hours}</td></tr>`).join('');
-	  $('#tmeta').textContent='更新于 '+d.generated_at+'（仅发布满 '+(d.min_age_hours||6)+' 小时；动量=播放量/发布小时数；缓存 5 分钟）';
+    <td class="num">${v.coin.toLocaleString()}</td><td class="num">${v.danmaku.toLocaleString()}</td></tr>`;
+  const fill=(sel,list,empty)=>{ $(sel).innerHTML = (list&&list.length)
+    ? list.map(row).join('') : `<tr><td colspan="7" class="mut">${empty}</td></tr>`; };
+  fill('#vtab_broad tbody', d.broad, '暂无');
+  fill('#vtab_niche tbody', d.niche, '当前圈内暂无出圈热点（说明此刻没有 VTuber/歌枠 相关内容冲上热门）');
+  $('#tmeta').textContent='更新于 '+d.generated_at+'（动量=播放量/发布小时数；全站=综合热门，圈内=关键词命中；缓存 5 分钟）';
 	}
 loadTrends();
 

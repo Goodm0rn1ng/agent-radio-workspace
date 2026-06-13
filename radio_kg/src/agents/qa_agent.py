@@ -57,6 +57,16 @@ ANSWER_STRUCT_SYSTEM = """あなたはラジオ番組の知識ベースに基づ
 JSON のみ出力：
 {"abstain": false, "facts": [{"fact": "一文の事実陈述", "source_id": 3}, ...]}"""
 
+# 列挙/網羅質問用の追加指示。structured 回答は既定でソースを「まとめて1件」に
+# 圧縮しがちで、リスト系の質問（哪些/全部/清单/排名/时间轴…）では取りこぼす。
+# このモードでは「異なる項目は必ず別 fact」「最後まで走査して全部出す」を強制する。
+ENUM_DIRECTIVE = """
+【列挙モード — 網羅性最優先】この質問は複数項目の列挙・網羅・ランキング・時間軸を求めている。
+- コンテキスト [1]…[N] を最後の一件まで走査し、該当する項目を一つ残らず別々の fact として出力する。
+- **異なる項目を 1 件にまとめてはならない**。「まとめて1件」は完全に同一の項目が重複している場合だけに限る。
+- 期数・人名・曲名・作品名・出来事など、確認できる項目の数だけ fact を作る（5件あれば5件、10件あれば10件）。
+- それでも各 fact は必ず実在する source_id を持ち、本文に書かれていない情報は足さない。"""
+
 VERIFY_STRUCT_SYSTEM = """你是事实核查器。给定若干 (编号, 事实陈述, 该事实声称的来源原文)，
 判断每条事实**是否能够**由其来源原文支撑。
 
@@ -207,11 +217,16 @@ class QAAgent:
         return text
 
     # ── structured answer: fact -> source_id -> citation, then verify ──────
-    def answer_structured(self, question: str, passages: list, history: list[dict] | None = None) -> dict:
+    def answer_structured(self, question: str, passages: list, history: list[dict] | None = None,
+                          enumerate_mode: bool = False) -> dict:
         """Generate a fact-by-fact answer where every fact carries a source_id
         pointing at a retrieved passage, then post-verify each fact against that
         passage. Facts citing a non-existent source, or not supported by their
         cited passage, are dropped — the model cannot free-form fabricate.
+
+        `enumerate_mode` appends an exhaustiveness directive for list/ranking/
+        timeline questions, where the default prompt collapses distinct items
+        into a single fact (the main cause of "incomplete answers").
 
         Returns {"answer": rendered_text, "facts": [verified facts], "dropped": N}.
         """
@@ -226,9 +241,10 @@ class QAAgent:
         convo = self._format_history(history)
         prefix = f"【会话历史】\n{convo}\n\n" if convo else ""
         user = f"{prefix}【コンテキスト】\n{context}\n\n【質問】\n{question}"
+        system = ANSWER_STRUCT_SYSTEM + ENUM_DIRECTIVE if enumerate_mode else ANSWER_STRUCT_SYSTEM
         try:
             data = self.llm.complete_json(
-                ANSWER_STRUCT_SYSTEM, user, max_tokens=settings.qa_answer_max_tokens)
+                system, user, max_tokens=settings.qa_answer_max_tokens)
         except LLMError as e:
             return {"answer": f"(生成失败: {e})", "facts": [], "dropped": 0}
 

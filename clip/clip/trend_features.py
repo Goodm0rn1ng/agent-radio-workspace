@@ -91,9 +91,13 @@ def rank_items(items: list[TrendItem]) -> list[TrendItem]:
     return fresh
 
 
-def distill_features(items: list[TrendItem], llm: LLMClient, top_n: int) -> list[TrendFeature]:
-    """对动量 topN 稿件做 LLM 特征蒸馏。"""
-    ranked = rank_items(items)
+def distill_features(items: list[TrendItem], llm: LLMClient, top_n: int,
+                     prerank: bool = True) -> list[TrendFeature]:
+    """对动量 topN 稿件做 LLM 特征蒸馏。
+
+    prerank=False 时跳过内部 rank_items（时间窗+动量排序），直接蒸馏调用方已选好的
+    items —— 用于本机时钟为虚构未来日、时间窗会误杀全部条目的看板场景。"""
+    ranked = rank_items(items) if prerank else list(items)
     top = ranked[:top_n]
     if not top:
         return []

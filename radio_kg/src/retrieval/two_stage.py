@@ -258,18 +258,26 @@ class TwoStageRetriever:
         self.fallback_k = fallback_k or settings.qa_fallback_k
 
     def retrieve(self, question: str, anchors: list[str], search_query: str | list[str] = "",
-                 top_n: int = 14) -> tuple[list[Passage], RetrievalDebug]:
+                 top_n: int = 14, wide: bool = False) -> tuple[list[Passage], RetrievalDebug]:
+        """`wide=True` doubles every recall budget — used for enumeration /
+        cross-episode aggregation questions ("哪些/全部/清单/时间轴") where the
+        default top-k routing structurally under-recalls, and for the
+        corrective retry after an abstained answer."""
         dbg = RetrievalDebug()
+        boost = 2 if wide else 1
+        summary_k, direct_k, fallback_k = (
+            self.summary_k * boost, self.direct_k * boost, self.fallback_k * boost)
         q = SummaryRetriever._queries(search_query or [question])
         filters = SummaryRetriever._filters(q)
         graph_query = " ".join(q)
 
         # entity-anchored graph branch always runs
-        graph_hits = self.graph_retriever.retrieve(anchors, hops=self.hops, query=graph_query)
+        graph_hits = self.graph_retriever.retrieve(
+            anchors, hops=self.hops, query=graph_query, limit=40 * boost)
         dbg.n_graph = len(graph_hits)
 
         # Stage 1: route on summaries
-        clues, best = self.summary.route(q, k=self.summary_k)
+        clues, best = self.summary.route(q, k=summary_k)
         dbg.summary_clues = [
             {"episode": c["episode"], "title": c["title"],
              "episode_label": c.get("episode_label", ""),
@@ -310,13 +318,13 @@ class TwoStageRetriever:
             dbg.path = "two_stage"
             # always-on direct-chunk safety net: summary routing can confidently
             # match the wrong section, so fuse in a few directly-retrieved chunks
-            for p in self.vector_fallback.retrieve(q, k=self.direct_k):
+            for p in self.vector_fallback.retrieve(q, k=direct_k):
                 if SummaryRetriever._matches_filters(p.meta, filters):
                     _add(p)
             dbg.n_direct = len(dialogue) - dbg.n_window
         else:
             # routing too weak -> rely on direct dialogue retrieval
-            for p in self.vector_fallback.retrieve(q, k=self.fallback_k):
+            for p in self.vector_fallback.retrieve(q, k=fallback_k):
                 if SummaryRetriever._matches_filters(p.meta, filters):
                     _add(p)
             dbg.n_fallback = len(dialogue)

@@ -3,37 +3,38 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>radio_kg · 人机协同审批看板</title>
+<title>回声工作台 · 入库看板</title>
+<link rel="stylesheet" href="/static/theme.css">
 <style>
-  :root { --bg:#0f1115; --card:#1a1d24; --line:#2b2f3a; --fg:#e6e8ee; --mut:#9aa3b2;
-          --ok:#3fb950; --warn:#d29922; --bad:#f85149; --acc:#58a6ff; }
+  :root { --bg:var(--k-bg); --card:var(--k-surface); --line:var(--k-line); --fg:var(--k-ink);
+          --mut:var(--k-mut); --ok:var(--k-ok); --warn:var(--k-warn); --bad:var(--k-bad); --acc:var(--k-acc); }
   * { box-sizing:border-box; }
-  body { margin:0; font:14px/1.55 -apple-system,system-ui,"Hiragino Sans","Microsoft YaHei",sans-serif;
-         background:var(--bg); color:var(--fg); }
-  header { padding:18px 24px; border-bottom:1px solid var(--line); display:flex; align-items:baseline; gap:16px; }
-  header h1 { font-size:18px; margin:0; }
-  header a { color:var(--acc); text-decoration:none; font-size:13px; }
+  body { margin:0; font:14px/1.55 var(--k-font); background:var(--bg); color:var(--fg);
+         display:flex; flex-direction:column; height:100vh; }
+  header { padding:14px 24px; border-bottom:1px solid var(--line); display:flex; align-items:baseline; gap:16px;
+           background:var(--card); }
+  header h1 { font-size:16px; margin:0; font-weight:650; }
   header .stats { color:var(--mut); font-size:13px; }
-  main { display:grid; grid-template-columns:300px 1fr; gap:0; height:calc(100vh - 59px); }
-  .side { border-right:1px solid var(--line); overflow:auto; padding:12px; }
-  .side h2, .main h2 { font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--mut); margin:6px 4px 12px; }
+  main { flex:1; display:grid; grid-template-columns:300px 1fr; gap:0; min-height:0; }
+  .side { border-right:1px solid var(--line); overflow:auto; padding:12px; background:var(--k-soft); }
+  .side h2, .main h2 { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--mut); margin:6px 4px 12px; }
   .ep { display:flex; align-items:center; justify-content:space-between; padding:7px 9px; border-radius:8px; }
-  .ep:hover { background:#161922; }
+  .ep:hover { background:var(--k-hover); }
   .ep .lbl { font-size:12px; color:var(--mut); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:185px; }
   .dot { width:8px; height:8px; border-radius:50%; flex:0 0 8px; }
-  .dot.on { background:var(--ok); } .dot.off { background:#39414f; }
-  button { font:inherit; cursor:pointer; border:1px solid var(--line); background:#222633; color:var(--fg);
+  .dot.on { background:var(--ok); } .dot.off { background:var(--k-line-strong); }
+  button { font:inherit; cursor:pointer; border:1px solid var(--k-line-strong); background:var(--card); color:var(--fg);
            border-radius:7px; padding:5px 11px; }
   button:hover { border-color:var(--acc); }
   button.mini { padding:3px 9px; font-size:12px; }
   .main { overflow:auto; padding:16px 24px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:var(--k-radius); padding:16px; margin-bottom:14px; }
   .card .ttl { font-weight:600; margin-bottom:4px; }
   .kind { font-size:11px; padding:2px 8px; border-radius:20px; margin-left:8px; }
-  .kind.conflict { background:#3a2a12; color:var(--warn); }
-  .kind.inspect { background:#10263a; color:var(--acc); }
+  .kind.conflict { background:var(--k-sun-soft); color:var(--warn); }
+  .kind.inspect { background:var(--k-acc-soft); color:var(--acc); }
   .cmp { display:grid; grid-template-columns:1fr 24px 1fr; gap:8px; align-items:center; margin:10px 0; }
-  .box { border:1px solid var(--line); border-radius:8px; padding:9px 11px; background:#12151c; }
+  .box { border:1px solid var(--line); border-radius:8px; padding:9px 11px; background:var(--k-soft); }
   .box .h { font-size:11px; color:var(--mut); margin-bottom:3px; }
   .box.old .h { color:var(--mut); } .box.new .h { color:var(--ok); }
   .arrow { text-align:center; color:var(--mut); }
@@ -41,17 +42,16 @@
   .acts { display:flex; gap:8px; flex-wrap:wrap; }
   .acts .seg { display:flex; gap:6px; }
   .empty { color:var(--mut); padding:40px; text-align:center; }
-  .toast { position:fixed; right:18px; bottom:18px; background:#1f2430; border:1px solid var(--line);
-           padding:10px 14px; border-radius:9px; opacity:0; transition:.25s; }
+  .toast { position:fixed; right:18px; bottom:18px; background:var(--card); border:1px solid var(--k-line-strong);
+           padding:10px 14px; border-radius:9px; opacity:0; transition:.25s; box-shadow:var(--k-shadow); }
   .toast.show { opacity:1; }
-  code { color:#e6db74; }
+  code { color:var(--k-sun); background:var(--k-soft); padding:0 4px; border-radius:4px; }
 </style>
 </head>
 <body>
+<nav data-knav="dashboard"></nav>
 <header>
-  <h1>radio_kg · 人机协同审批看板</h1>
-  <a href="/">对话</a>
-  <a href="/radio">Radio</a>
+  <h1>入库看板</h1>
   <span class="stats" id="stats">加载中…</span>
   <span style="flex:1"></span>
   <button class="mini" onclick="refresh()">刷新</button>
@@ -76,19 +76,22 @@ async function jpost(u,b){ const r=await fetch(u,{method:"POST",headers:{"Conten
 
 async function loadEpisodes(){
   const d = await jget("/api/episodes");
-  $("#stats").textContent = `图谱实体 ${d.stats.entities} · 关系 ${d.stats.relations} · 已入库期数 ${d.episodes.filter(e=>e.ingested).length}/${d.episodes.length}`;
-  $("#episodes").innerHTML = d.episodes.map(e => `
-    <div class="ep">
-      <span class="dot ${e.ingested?'on':'off'}"></span>
-      <span class="lbl" title="${e.label}">#${e.episode??'?'} ${e.label.replace(/^[0-9_\-]+/,'')}</span>
-      <button class="mini" onclick='ingest(${e.episode})'>入库</button>
-    </div>`).join("");
+  $("#stats").textContent = `图谱实体 ${d.stats.entities} · 关系 ${d.stats.relations} · 已入库 ${d.ingested}/${d.total}（${d.collections.length} 个合集）`;
+  $("#episodes").innerHTML = d.collections.map(col => {
+    const rows = col.episodes.map(e => `
+      <div class="ep" data-dir="${encodeURIComponent(e.dir)}">
+        <span class="dot ${e.ingested?'on':'off'}"></span>
+        <span class="lbl" title="${e.label}">${e.episode!=null?`#${e.episode} `:''}${e.label.replace(/^[0-9]{4}-[0-9]{2}-[0-9]{2}_/,'')}</span>
+        <button class="mini" onclick='ingestDir(this)'>${e.ingested?'重入库':'入库'}</button>
+      </div>`).join("");
+    return `<details ${col.episodes.some(e=>!e.ingested)?'open':''}><summary style="cursor:pointer;padding:6px 4px;font-weight:600;font-size:12.5px">${col.name} <span style="color:var(--mut);font-weight:400">${col.episodes.filter(e=>e.ingested).length}/${col.episodes.length}</span></summary>${rows}</details>`;
+  }).join("");
 }
 
 async function loadPending(){
   const d = await jget("/api/pending");
   const box = $("#pending");
-  if(!d.pending.length){ box.innerHTML = `<div class="empty">暂无待审批项。从左侧对某期点击「入库」，若产生冲突或审核高风险事实将在此出现。</div>`; return; }
+  if(!d.pending.length){ box.innerHTML = `<div class="empty">暂无待处理项。入库时的疑点与冲突现已由 LLM 携上下文自动终审入库；此处仅显示历史遗留的挂起线程。</div>`; return; }
   box.innerHTML = d.pending.map(renderThread).join("");
 }
 
@@ -105,7 +108,7 @@ function renderThread(p){
       <span class="kind ${isConf?'conflict':'inspect'}">${isConf?'知识冲突':'审核·高风险事实'}</span></div>
     ${items}
     <div style="margin-top:6px;color:var(--mut);font-size:12px">每项选择处理方式：</div>
-    ${p.items.map((_,i)=>`<select class="dec" data-i="${i}" style="margin:6px 6px 0 0;padding:5px;border-radius:6px;background:#12151c;color:var(--fg);border:1px solid var(--line)">${opts}</select>`).join("")}
+    ${p.items.map((_,i)=>`<select class="dec" data-i="${i}" style="margin:6px 6px 0 0;padding:5px;border-radius:6px;background:var(--card);color:var(--fg);border:1px solid var(--line)">${opts}</select>`).join("")}
     <div class="acts" style="margin-top:12px"><button onclick='submitThread(this)'>提交本期决定并恢复</button></div>
   </div>`;
 }
@@ -127,14 +130,15 @@ function inspItem(it,i){
   <div class="reason">理由：${it.reason||''}</div>`;
 }
 
-async function ingest(ep){
-  if(ep==null) return;
-  toast(`第 ${ep} 期入库中…`);
+async function ingestDir(btn){
+  const dir = decodeURIComponent(btn.closest(".ep").dataset.dir);
+  btn.disabled = true; toast("入库中…（疑点与冲突将由 LLM 自动终审）");
   try{
-    const r = await jpost("/api/ingest", {episode: ep});
-    toast(r.status==="interrupted" ? `第 ${ep} 期已挂起，待审批` : `第 ${ep} 期入库完成：${(r.written||[]).join(', ')}`);
+    const r = await jpost("/api/ingest", {dir});
+    toast(r.status==="interrupted" ? "已挂起（遗留审批流）" : `入库完成：${(r.written||[]).join(', ')}`);
     refresh();
   }catch(e){ toast("入库失败："+e.message); }
+  finally{ btn.disabled = false; }
 }
 
 async function submitThread(btn){
@@ -153,5 +157,6 @@ function refresh(){ loadEpisodes(); loadPending(); }
 refresh();
 setInterval(loadPending, 5000);
 </script>
+<script src="/static/knav.js"></script>
 </body>
 </html>

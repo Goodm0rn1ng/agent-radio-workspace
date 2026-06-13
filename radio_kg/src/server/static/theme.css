@@ -1,0 +1,85 @@
+/* ── 回声工作台 · 统一设计令牌 (shared design tokens) ──────────────
+   一个工作台、三个房间（对话 / Radio 录制 / 直播切片）+ 入库看板。
+   视觉隐喻「木漏れ日」：暖纸底、橄榄叶绿主色、阳光琥珀点缀。
+   状态语义全站统一：绿=就绪/成功 · 琥珀=进行中/注意 · 红=失败。
+   页面各自的局部样式应只引用这些变量，不再硬编码颜色。 */
+:root {
+  color-scheme: light;
+  /* 底色层 */
+  --k-bg: #faf9f5;            /* 暖纸 */
+  --k-surface: #ffffff;       /* 卡片 */
+  --k-soft: #f3f1ea;          /* 侧栏 / 软底 */
+  --k-hover: #edeae1;         /* 行 hover */
+  --k-line: #e7e3d9;
+  --k-line-strong: #d7d2c5;
+  /* 文字 */
+  --k-ink: #26241f;
+  --k-mut: #7d786c;
+  /* 主色：橄榄叶绿（树叶），点缀：阳光琥珀（光斑） */
+  --k-acc: #667461;
+  --k-acc-deep: #56624f;
+  --k-acc-ink: #ffffff;
+  --k-acc-soft: #e6e9e0;
+  --k-sun: #8a6f42;
+  --k-sun-soft: #f2e9d6;
+  /* 状态 */
+  --k-ok: #58705b;
+  --k-ok-soft: #e1eae1;
+  --k-warn: #8a7354;
+  --k-bad: #9f3535;
+  --k-bad-soft: #f3e3e3;
+  /* 杂项 */
+  --k-usr: #ecefe8;           /* 用户气泡 */
+  --k-radius: 12px;
+  --k-radius-sm: 8px;
+  --k-shadow: 0 8px 24px rgba(80, 90, 70, .12);
+  --k-font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI",
+            "Hiragino Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+/* ── 全局导航条（由 /static/knav.js 注入内容） ── */
+.knav {
+  display: flex; align-items: center; gap: 4px;
+  padding: 10px 20px;
+  background: var(--k-surface);
+  border-bottom: 1px solid var(--k-line);
+  font: 13.5px/1.5 var(--k-font);
+  position: sticky; top: 0; z-index: 40;
+}
+.knav .knav-brand {
+  display: inline-flex; align-items: center; gap: 8px;
+  color: var(--k-ink); text-decoration: none; font-weight: 650;
+  margin-right: 14px; letter-spacing: .01em;
+}
+.knav .knav-brand .leaf { color: var(--k-acc); font-size: 15px; }
+.knav a.knav-item {
+  color: var(--k-mut); text-decoration: none;
+  padding: 6px 13px; border-radius: 999px; transition: .15s;
+}
+.knav a.knav-item:hover { color: var(--k-ink); background: var(--k-soft); }
+.knav a.knav-item.on {
+  color: var(--k-acc-ink); background: var(--k-acc); font-weight: 600;
+}
+.knav .knav-health {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 7px;
+  color: var(--k-mut); font-size: 12px;
+}
+.knav .knav-health .kdot { animation: none; }
+
+/* ── 共享原子组件 ── */
+.kdot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: 0 0 8px; }
+.kdot.on   { background: var(--k-ok); }
+.kdot.off  { background: var(--k-line-strong); }
+.kdot.work { background: var(--k-warn); animation: kpulse 1s infinite; }
+.kdot.bad  { background: var(--k-bad); }
+@keyframes kpulse { 0%, 100% { opacity: 1 } 50% { opacity: .3 } }
+
+.kpill {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11.5px; padding: 1px 9px; border-radius: 999px;
+  background: var(--k-soft); color: var(--k-mut); border: 1px solid var(--k-line);
+}
+.kpill.acc  { background: var(--k-acc-soft); color: var(--k-acc); border-color: transparent; }
+.kpill.sun  { background: var(--k-sun-soft); color: var(--k-sun); border-color: transparent; }
+.kpill.ok   { background: var(--k-ok-soft);  color: var(--k-ok);  border-color: transparent; }
+.kpill.bad  { background: var(--k-bad-soft); color: var(--k-bad); border-color: transparent; }

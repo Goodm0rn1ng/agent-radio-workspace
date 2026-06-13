@@ -6,9 +6,11 @@ the pipeline never depends on a concrete provider SDK.
 from __future__ import annotations
 
 import json
+import time
 from typing import Any
 
 from config.settings import settings
+from src.llm import cost
 
 
 class LLMError(RuntimeError):
@@ -70,6 +72,7 @@ class LLMClient:
             raise LLMError(f"model did not return valid JSON: {e}\n---\n{raw[:800]}")
 
     def _complete_text(self, system: str, user: str, max_tokens: int, json_mode: bool = False) -> str:
+        t0 = time.time()
         if self.provider == "anthropic":
             resp = self._client.messages.create(
                 model=self.model,
@@ -77,6 +80,10 @@ class LLMClient:
                 system=system,
                 messages=[{"role": "user", "content": user}],
             )
+            u = getattr(resp, "usage", None)
+            cost.record(self.provider, self.model,
+                        getattr(u, "input_tokens", 0) or 0,
+                        getattr(u, "output_tokens", 0) or 0, time.time() - t0)
             return "".join(b.text for b in resp.content if b.type == "text")
         # openai / deepseek / mimo (chat completions, OpenAI-compatible)
         kwargs = {}
@@ -95,4 +102,8 @@ class LLMClient:
             ],
             **kwargs,
         )
+        u = getattr(resp, "usage", None)
+        cost.record(self.provider, self.model,
+                    getattr(u, "prompt_tokens", 0) or 0,
+                    getattr(u, "completion_tokens", 0) or 0, time.time() - t0)
         return resp.choices[0].message.content or ""

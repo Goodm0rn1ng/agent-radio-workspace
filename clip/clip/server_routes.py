@@ -28,6 +28,14 @@ _INTERESTS = clip_config.abspath("./data/clipper_interests.json")   # Agent/clip
 
 router = APIRouter(prefix="/clipper")
 
+
+def _with_cost(kind: str, title: str, fn, *args):
+    """在成本台账里把一次后台任务记为一条「产出」（LLM token + 全程墙钟耗时）。"""
+    from src.llm import cost
+    with cost.track(kind, title=title):
+        fn(*args)
+
+
 # ---- 简单缓存 + 任务表 ----
 _trends_cache: dict = {"key": None, "ts": 0.0, "data": None}
 _TRENDS_TTL = 300
@@ -89,48 +97,70 @@ def _load_trends_data(partitions: str = "", topk: int = 10, factors: bool = True
         return _trends_cache["data"]
 
     from clip.bilibili_source import BilibiliClient, fetch_trends
-    from clip.trend_features import _now_ref, rank_items, score_item
+    from clip.trend_features import _now_ref, distill_features, score_item
     items = fetch_trends(partitions=parts, keywords=keywords, per_keyword=20)
     now_ref = _now_ref(items)
-    ranked_all = rank_items(items)
-    # 关键词过滤：与 歌曲/虚拟主播/bangdream 相关的优先；不足 topk 再用其余补满
+    # 不套用 6-48h 时间窗：综合热门/分区排行本身就是 curated 当下热点，且本机时钟为
+    # 虚构未来日，时间窗会把全部条目误杀（这正是此前看板空白的原因）。只按动量排序。
+    scored = sorted(items, key=lambda it: score_item(it, now_ref), reverse=True)
     kws = [k.lower() for k in keywords]
 
     def _match(it):
         blob = f"{it.title} {it.tname} {it.owner} {it.desc}".lower()
         return any(k in blob for k in kws)
-    matched = [it for it in ranked_all if _match(it)]
-    rest = [it for it in ranked_all if not _match(it)]
-    ranked = (matched + rest)[:topk]
-    videos = [{
-        "bvid": it.bvid, "title": it.title, "partition": it.partition,
-        "owner": it.owner, "view": it.view, "like": it.like, "coin": it.coin,
-        "danmaku": it.danmaku, "reply": it.reply,
-        "hours": round(it.hours_since(now_ref), 1),
-        "momentum": round(it.view / it.hours_since(now_ref)),
-        "score": round(score_item(it, now_ref)),
-        "url": f"https://www.bilibili.com/video/{it.bvid}",
-    } for it in ranked]
+
+    # 全站热点：综合热门为主（真正在火、跨分区），回退到整体动量榜
+    broad = [it for it in scored if it.partition == "综合热门"][:topk] or scored[:topk]
+    # 圈内热点：与 歌曲/虚拟主播/bangdream/声優 相关；可能为空（=当前圈内无出圈热点）
+    niche = [it for it in scored if _match(it)][:topk]
+
+    def _vid(it, scope):
+        h = it.hours_since(now_ref)
+        return {
+            "bvid": it.bvid, "title": it.title, "scope": scope,
+            "partition": it.tname or it.partition, "owner": it.owner,
+            "view": it.view, "like": it.like, "coin": it.coin,
+            "danmaku": it.danmaku, "reply": it.reply,
+            "hours": round(h, 1), "momentum": round(it.view / h),
+            "score": round(score_item(it, now_ref)),
+            "url": f"https://www.bilibili.com/video/{it.bvid}",
+        }
+    broad_v = [_vid(it, "全站") for it in broad]
+    niche_v = [_vid(it, "圈内") for it in niche]
+    # videos（向后兼容 title_recommender）：圈内优先、其次全站，去重
+    seen_v, videos = set(), []
+    for v in niche_v + broad_v:
+        if v["bvid"] not in seen_v:
+            seen_v.add(v["bvid"])
+            videos.append(v)
 
     factor_list = []
-    if factors and ranked:
-        try:
-            from clip.trend_features import distill_features
-            from src.llm.client import LLMClient
-            with BilibiliClient() as cli:
-                for it in ranked[:min(8, len(ranked))]:
-                    cli.enrich(it)
-            feats = distill_features(items, LLMClient(), top_n=min(8, len(ranked)))
-            factor_list = [{"topic": f.topic, "keywords": (f.keywords_zh + f.keywords_ja)[:6],
-                            "hot_songs": f.hot_songs, "hook": f.hook} for f in feats]
-        except Exception as e:  # noqa: BLE001
-            factor_list = [{"topic": f"(爆火因素分析失败: {e})", "keywords": [], "hot_songs": [], "hook": ""}]
+    if factors:
+        # 爆火因素同时覆盖「圈内 + 出圈」，直接回答“是否错过了真正的热点”
+        factor_items, fseen = [], set()
+        for it in niche[:5] + broad[:6]:
+            if it.bvid not in fseen:
+                fseen.add(it.bvid)
+                factor_items.append(it)
+        if factor_items:
+            try:
+                from src.llm.client import LLMClient
+                with BilibiliClient() as cli:
+                    for it in factor_items:
+                        cli.enrich(it)
+                feats = distill_features(factor_items, LLMClient(),
+                                         top_n=len(factor_items), prerank=False)
+                factor_list = [{"topic": f.topic, "keywords": (f.keywords_zh + f.keywords_ja)[:6],
+                                "hot_songs": f.hot_songs, "hook": f.hook} for f in feats]
+            except Exception as e:  # noqa: BLE001
+                factor_list = [{"topic": f"(爆火因素分析失败: {e})", "keywords": [], "hot_songs": [], "hook": ""}]
 
     data = {
+        "broad": broad_v,
+        "niche": niche_v,
         "videos": videos,
         "factors": factor_list,
         "generated_at": time.strftime("%H:%M:%S"),
-        "min_age_hours": clip_config.trends_min_age_hours,
     }
     _trends_cache.update(key=key, ts=now, data=data)
     return data
@@ -166,7 +196,8 @@ def record(req: RecordReq):
     job_id = uuid.uuid4().hex[:8]
     _jobs[job_id] = {"id": job_id, "url": req.url, "program": req.program,
                      "status": "queued", "stage": "排队", "ts": time.time()}
-    threading.Thread(target=_run_job, args=(job_id, req), daemon=True).start()
+    threading.Thread(target=_with_cost, args=("clip", f"录制处理 {req.url[:48]}", _run_job, job_id, req),
+                     daemon=True).start()
     return {"job_id": job_id}
 
 
@@ -451,7 +482,9 @@ def slice_ep(req: SliceReq):
     job_id = uuid.uuid4().hex[:8]
     _jobs[job_id] = {"id": job_id, "kind": "slice", "status": "queued", "stage": "排队",
                      "ts": time.time(), "range": f"{int(req.start)}-{int(req.end)}s"}
-    threading.Thread(target=_run_slice, args=(job_id, req), daemon=True).start()
+    threading.Thread(target=_with_cost,
+                     args=("clip", f"切片 {int(req.start)}-{int(req.end)}s", _run_slice, job_id, req),
+                     daemon=True).start()
     return {"job_id": job_id}
 
 
@@ -526,7 +559,9 @@ def slice_preview(req: SliceReq):
     _jobs[job_id] = {"id": job_id, "kind": "preview", "status": "queued",
                      "stage": f"排队 · LLM {llm_label}",
                      "ts": time.time(), "range": f"{int(req.start)}-{int(req.end)}s"}
-    threading.Thread(target=_run_preview, args=(job_id, req), daemon=True).start()
+    threading.Thread(target=_with_cost,
+                     args=("clip", f"切片预览 {int(req.start)}-{int(req.end)}s", _run_preview, job_id, req),
+                     daemon=True).start()
     return {"job_id": job_id}
 
 
@@ -599,3 +634,40 @@ def download_clip(job_id: str):
 def report(episode_dir: str):
     from clip.report import build_report
     return build_report(episode_dir)
+
+
+# ───────── 数据看板：B 站账号监测 + 全链路成本台账 ─────────
+_account_cache: dict[str, dict] = {}
+_ACCOUNT_TTL = 300
+
+
+@router.get("/dashboard")
+def databoard_page():
+    return FileResponse(_STATIC / "databoard.html", headers={"Cache-Control": "no-store"})
+
+
+@router.get("/api/account")
+def monitor_account(account: str = "", limit: int = 20, force: bool = False):
+    """监测某 B 站账号（主页 URL 或 UID）的稿件播放量。只读公开数据。"""
+    account = (account or "").strip()
+    if not account:
+        return {"error": "请提供 B 站账号主页 URL 或 UID（例：space.bilibili.com/946974）"}
+    key = f"{account}|{limit}"
+    now = time.time()
+    cached = _account_cache.get(key)
+    if not force and cached and now - cached["ts"] < _ACCOUNT_TTL:
+        return cached["data"]
+    try:
+        from clip.account_monitor import fetch_account
+        data = fetch_account(account, limit=limit)
+    except Exception as e:  # noqa: BLE001 — 风控/解析失败回前端文案
+        return {"error": str(e)}
+    _account_cache[key] = {"ts": now, "data": data}
+    return data
+
+
+@router.get("/api/cost")
+def cost_board(n: int = 50):
+    """全链路 LLM 成本台账：每条产出的 token / 耗时 / 估算 USD + 汇总。"""
+    from src.llm import cost
+    return {"outputs": cost.recent_outputs(n), "totals": cost.totals()}

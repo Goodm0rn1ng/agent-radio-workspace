@@ -3,51 +3,55 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>radio_kg · GraphRAG 问答</title>
+<title>回声工作台 · 单问答</title>
+<link rel="stylesheet" href="/static/theme.css">
 <style>
-  :root { --bg:#0f1115; --card:#1a1d24; --line:#2b2f3a; --fg:#e6e8ee; --mut:#9aa3b2;
-          --ok:#3fb950; --acc:#58a6ff; --gra:#d29922; }
+  :root { --bg:var(--k-bg); --card:var(--k-surface); --line:var(--k-line); --fg:var(--k-ink);
+          --mut:var(--k-mut); --ok:var(--k-ok); --acc:var(--k-acc); --gra:var(--k-sun); }
   * { box-sizing:border-box; }
-  body { margin:0; font:15px/1.7 -apple-system,system-ui,"Hiragino Sans","Microsoft YaHei",sans-serif;
-         background:var(--bg); color:var(--fg); }
-  header { padding:16px 24px; border-bottom:1px solid var(--line); display:flex; gap:14px; align-items:baseline; }
-  header h1 { font-size:17px; margin:0; } header a { color:var(--mut); font-size:13px; text-decoration:none; }
+  body { margin:0; font:15px/1.7 var(--k-font); background:var(--bg); color:var(--fg); }
+  header { padding:14px 24px; border-bottom:1px solid var(--line); display:flex; gap:14px; align-items:baseline;
+           background:var(--card); }
+  header h1 { font-size:16px; margin:0; font-weight:650; } header a { color:var(--mut); font-size:13px; text-decoration:none; }
+  header a:hover { color:var(--acc); }
   .wrap { max-width:820px; margin:0 auto; padding:24px; }
   .ask { display:flex; gap:10px; }
-  .ask input { flex:1; background:#12151c; border:1px solid var(--line); color:var(--fg);
+  .ask input { flex:1; background:var(--card); border:1px solid var(--k-line-strong); color:var(--fg);
                border-radius:10px; padding:12px 14px; font:inherit; }
-  .ask button { background:var(--acc); border:none; color:#06203f; font-weight:600;
+  .ask button { background:var(--acc); border:none; color:var(--k-acc-ink); font-weight:600;
                 border-radius:10px; padding:0 20px; cursor:pointer; }
+  .ask button:hover { background:var(--k-acc-deep); }
   .meta { color:var(--mut); font-size:13px; margin:14px 2px; }
-  .answer { background:var(--card); border:1px solid var(--line); border-radius:14px;
+  .answer { background:var(--card); border:1px solid var(--line); border-radius:var(--k-radius);
             padding:20px 22px; font-size:16px; line-height:1.9; white-space:pre-wrap; }
   .cite { display:inline-flex; align-items:center; justify-content:center; vertical-align:middle;
-          width:18px; height:18px; margin:0 2px; border-radius:50%; background:#10263a; color:var(--acc);
-          font-size:11px; cursor:help; position:relative; border:1px solid #1f4d77; }
+          width:18px; height:18px; margin:0 2px; border-radius:50%; background:var(--k-acc-soft); color:var(--acc);
+          font-size:11px; cursor:help; position:relative; border:1px solid var(--k-line-strong); }
   .cite:hover .pop { opacity:1; transform:translateY(0); pointer-events:auto; }
   .pop { position:absolute; bottom:140%; left:50%; transform:translate(-50%,6px); opacity:0; pointer-events:none;
-         transition:.15s; width:280px; background:#0b0e13; border:1px solid var(--acc); border-radius:10px;
+         transition:.15s; width:280px; background:var(--card); border:1px solid var(--acc); border-radius:10px;
          padding:10px 12px; text-align:left; font-size:12.5px; line-height:1.55; color:var(--fg); z-index:10;
-         box-shadow:0 8px 24px rgba(0,0,0,.5); }
+         box-shadow:var(--k-shadow); }
   .pop .row { display:flex; gap:6px; margin:2px 0; }
   .pop .k { color:var(--mut); flex:0 0 52px; } .pop .v { color:var(--ok); }
   .pop:after { content:""; position:absolute; top:100%; left:50%; transform:translateX(-50%);
                border:6px solid transparent; border-top-color:var(--acc); }
   .src { margin-top:18px; }
   .src summary { color:var(--mut); cursor:pointer; font-size:13px; }
-  .si { border:1px solid var(--line); border-radius:9px; padding:9px 11px; margin:8px 0; background:#12151c; }
+  .si { border:1px solid var(--line); border-radius:9px; padding:9px 11px; margin:8px 0; background:var(--k-soft); }
   .si .tag { font-size:11px; padding:1px 7px; border-radius:20px; margin-right:8px; }
-  .tag.graph { background:#3a2a12; color:var(--gra); } .tag.vector { background:#10263a; color:var(--acc); }
-  .tag.summary { background:#132d20; color:var(--ok); }
+  .tag.graph { background:var(--k-sun-soft); color:var(--gra); } .tag.vector { background:var(--k-acc-soft); color:var(--acc); }
+  .tag.summary { background:var(--k-ok-soft); color:var(--ok); }
   .si .cit { color:var(--mut); font-size:12px; margin-top:3px; }
   .empty { color:var(--mut); }
+  code { color:var(--k-sun); background:var(--k-soft); padding:0 4px; border-radius:4px; }
 </style>
 </head>
 <body>
+<nav data-knav="chat"></nav>
 <header>
-  <h1>radio_kg · GraphRAG 问答</h1>
-  <a href="/">→ 审批看板</a>
-  <a href="/radio">→ Radio 控制台</a>
+  <h1>单问答（无会话上下文）</h1>
+  <a href="/chat">← 回到多轮对话</a>
 </header>
 <div class="wrap">
   <div class="ask">
@@ -112,5 +116,6 @@ async function run(){
   }catch(e){ $("#answer").className="answer"; $("#answer").textContent="出错："+e.message; }
 }
 </script>
+<script src="/static/knav.js"></script>
 </body>
 </html>

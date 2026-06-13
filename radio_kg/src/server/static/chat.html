@@ -3,16 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>radio_kg · 对话</title>
+<title>回声工作台 · 对话</title>
+<link rel="stylesheet" href="/static/theme.css">
 <style>
-  :root { color-scheme:light;
-          --bg:#fafafa; --side:#f4f4f2; --card:#ffffff; --line:#e5e5e2; --line-strong:#d6d6d1;
-          --fg:#1a1a1a; --mut:#727272; --ok:#58705b; --acc:#667461; --acc-ink:#ffffff;
-          --gra:#8a7354; --bad:#9f3535; --usr:#eef1ed; --soft:#fcfcfb; }
+  /* 局部别名 → 统一设计令牌（theme.css） */
+  :root { --bg:var(--k-bg); --side:var(--k-soft); --card:var(--k-surface); --line:var(--k-line);
+          --line-strong:var(--k-line-strong); --fg:var(--k-ink); --mut:var(--k-mut);
+          --ok:var(--k-ok); --acc:var(--k-acc); --acc-ink:var(--k-acc-ink);
+          --gra:var(--k-sun); --bad:var(--k-bad); --usr:var(--k-usr); --soft:var(--k-soft); }
   * { box-sizing:border-box; }
   html,body { height:100%; }
-  body { margin:0; font:15px/1.7 -apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI","Hiragino Sans","Microsoft YaHei",sans-serif;
-         background:var(--bg); color:var(--fg); display:flex; }
+  body { margin:0; font:15px/1.7 var(--k-font);
+         background:var(--bg); color:var(--fg); display:flex; flex-direction:column; }
+  .cols { flex:1; display:flex; min-height:0; }
   button { font:inherit; cursor:pointer; border:1px solid var(--line-strong); background:var(--surface,#fff); color:var(--fg);
            border-radius:8px; padding:6px 11px; } button:hover { border-color:var(--acc); }
   button.mini { padding:3px 8px; font-size:12px; }
@@ -21,14 +24,14 @@
 
   /* ── sidebar (function area) ── */
   .side { width:288px; flex:0 0 288px; background:var(--side); border-right:1px solid var(--line);
-          display:flex; flex-direction:column; height:100vh; }
+          display:flex; flex-direction:column; height:100%; min-height:0; }
   .side .top { padding:14px 14px 8px; }
   .side .brand { font-size:15px; font-weight:600; margin:0 2px 12px; }
   .newbtn { width:100%; background:var(--acc); color:var(--acc-ink); border:none; font-weight:600; padding:9px; border-radius:9px; }
   .seclbl { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--mut); margin:14px 6px 6px; }
   .convs { flex:1; overflow:auto; padding:0 8px; }
   .conv { display:flex; align-items:center; gap:6px; padding:8px 9px; border-radius:8px; cursor:pointer; }
-  .conv:hover { background:#ececea; } .conv.active { background:#e3e8e1; }
+  .conv:hover { background:var(--k-hover); } .conv.active { background:var(--k-acc-soft); }
   .conv .t { flex:1; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .conv .del { color:var(--mut); font-size:14px; opacity:0; border:none; background:none; padding:0 2px; }
   .conv:hover .del { opacity:1; }
@@ -50,22 +53,22 @@
   .coll .cnt { color:var(--mut); font-weight:400; font-size:11px; }
   .coll .eps { padding:2px 6px 7px; }
   .ep { display:flex; align-items:center; gap:7px; padding:5px 6px; border-radius:7px; }
-  .ep:hover { background:#efefed; }
+  .ep:hover { background:var(--k-hover); }
   .ep .lbl { flex:1; font-size:12px; color:var(--mut); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .ep .st { font-size:11px; color:var(--mut); }
   .dot { width:7px; height:7px; border-radius:50%; flex:0 0 7px; }
-  .dot.on { background:var(--ok); } .dot.off { background:#cfcfca; } .dot.work { background:var(--gra); animation:pulse 1s infinite; }
+  .dot.on { background:var(--ok); } .dot.off { background:var(--k-line-strong); } .dot.work { background:var(--gra); animation:pulse 1s infinite; }
   .dot.bad { background:var(--bad); }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
   .pendwrap { margin-top:10px; }
   .pcard { border:1px solid var(--line); border-radius:8px; padding:8px 9px; margin:7px 0; background:var(--card); font-size:12px; }
   .pcard .kind { font-size:10.5px; padding:1px 7px; border-radius:20px; margin-left:6px; }
-  .kind.conflict { background:#f1e7d6; color:var(--gra); } .kind.inspect { background:#e3e8e1; color:var(--acc); }
+  .kind.conflict { background:var(--k-sun-soft); color:var(--gra); } .kind.inspect { background:var(--k-acc-soft); color:var(--acc); }
   .cmp2 { margin:6px 0; color:var(--mut); } .cmp2 b { color:var(--fg); font-weight:600; }
   .pcard select { width:100%; margin:4px 0; padding:4px; border-radius:6px; background:#fff; color:var(--fg); border:1px solid var(--line-strong); font-size:12px; }
 
   /* ── chat main ── */
-  .main { flex:1; display:flex; flex-direction:column; height:100vh; }
+  .main { flex:1; display:flex; flex-direction:column; height:100%; min-height:0; }
   .topbar { display:flex; align-items:center; gap:14px; padding:14px 24px; border-bottom:1px solid var(--line); background:var(--card); }
   .topbar .ttl { font-weight:600; }
   .topbar .eyebrow { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--mut); margin:0 0 1px; }
@@ -74,7 +77,7 @@
   .topnav a:hover { color:var(--fg); background:var(--soft); }
   .topnav a.radio-entry { background:var(--acc); color:var(--acc-ink); font-weight:600; border:none; padding:8px 16px;
                           box-shadow:0 1px 3px rgba(0,0,0,.12); }
-  .topnav a.radio-entry:hover { background:#56624f; }
+  .topnav a.radio-entry:hover { background:var(--k-acc-deep); }
   .thread { flex:1; overflow:auto; padding:26px 0; }
   .col { max-width:780px; margin:0 auto; padding:0 24px; }
   .msg { margin:18px 0; }
@@ -86,8 +89,8 @@
   .src { margin-top:10px; } .src summary { color:var(--mut); cursor:pointer; font-size:12.5px; }
   .si { border:1px solid var(--line); border-radius:9px; padding:8px 10px; margin:7px 0; background:var(--soft); font-size:13px; }
   .si .tag { font-size:11px; padding:1px 7px; border-radius:20px; margin-right:8px; }
-  .tag.graph { background:#f1e7d6; color:var(--gra); } .tag.vector { background:#e3e8e1; color:var(--acc); } .tag.summary { background:#dfeae0; color:var(--ok); }
-  .tag.insight { background:#ece0ef; color:#7d4f86; } .tag.mail { background:#f2e7d2; color:#8a6a2f; }
+  .tag.graph { background:var(--k-sun-soft); color:var(--gra); } .tag.vector { background:var(--k-acc-soft); color:var(--acc); } .tag.summary { background:var(--k-ok-soft); color:var(--ok); }
+  .tag.insight { background:#ece4ef; color:#7d4f86; } .tag.mail { background:var(--k-sun-soft); color:var(--k-sun); }
   .langsw { margin-left:10px; display:inline-flex; gap:4px; vertical-align:middle; }
   .langsw button { background:#fff; color:var(--fg); border:1px solid var(--line-strong); border-radius:6px;
                    padding:1px 9px; font:inherit; font-size:11px; cursor:pointer; }
@@ -100,8 +103,8 @@
   .excard { display:flex; flex-direction:column; gap:7px; align-items:flex-start; padding:13px 15px;
             border:1px solid var(--line); border-radius:12px; background:var(--card); text-align:left; }
   .excard:hover { border-color:var(--acc); background:var(--soft); }
-  .extag { font-size:11px; padding:1px 9px; border-radius:20px; background:#e3e8e1; color:var(--acc); }
-  .extag.mail { background:#f2e7d2; color:#8a6a2f; }
+  .extag { font-size:11px; padding:1px 9px; border-radius:20px; background:var(--k-acc-soft); color:var(--acc); }
+  .extag.mail { background:var(--k-sun-soft); color:var(--k-sun); }
   .exq { font-size:13.5px; color:var(--fg); line-height:1.5; }
   @media (max-width:640px){ .excards { grid-template-columns:1fr; } }
 
@@ -128,7 +131,7 @@
   .kbacts button:disabled { opacity:.5; cursor:default; }
 
   .cite { display:inline-flex; align-items:center; justify-content:center; vertical-align:middle;
-          width:18px; height:18px; margin:0 2px; border-radius:50%; background:#e3e8e1; color:var(--acc);
+          width:18px; height:18px; margin:0 2px; border-radius:50%; background:var(--k-acc-soft); color:var(--acc);
           font-size:11px; cursor:help; position:relative; border:1px solid var(--line-strong); }
   .cite:hover .pop { opacity:1; transform:translate(-50%,0); pointer-events:auto; }
   .pop { position:absolute; bottom:140%; left:50%; transform:translate(-50%,6px); opacity:0; pointer-events:none;
@@ -152,10 +155,11 @@
 </style>
 </head>
 <body>
+<nav data-knav="chat"></nav>
+<div class="cols">
 <aside class="side">
   <div class="top">
-    <a href="/" style="display:inline-block;font-size:12px;color:#789;text-decoration:none;margin:0 0 6px 2px">← 主页</a>
-    <div class="brand">radio_kg · 对话</div>
+    <div class="brand">对话 · 知识库问答</div>
     <button class="newbtn" onclick="newConv()">+ 新对话</button>
     <div class="seclbl">会话</div>
   </div>
@@ -173,13 +177,11 @@
 <main class="main">
   <header class="topbar">
     <div>
-      <p class="eyebrow">radio_kg 知识库</p>
+      <p class="eyebrow">Echo · Knowledge Base</p>
       <div class="ttl">知识库问答 · 来信</div>
     </div>
     <nav class="topnav">
       <a href="/ask">单问答</a>
-      <a href="/dashboard">审批看板</a>
-      <a class="radio-entry" href="/radio">🎙 Radio 控制台 ↗</a>
     </nav>
   </header>
   <div class="thread" id="thread"></div>
@@ -194,7 +196,9 @@
     </div>
   </div>
 </main>
+</div>
 <div class="toast" id="toast"></div>
+<script src="/static/knav.js"></script>
 
 <script>
 const $=(s)=>document.querySelector(s);

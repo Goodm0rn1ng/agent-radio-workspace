@@ -2,6 +2,61 @@
 
 本项目所有功能性的完善与新增都记录于此。日期为开发日期 (YYYY-MM-DD)。
 
+## 数据看板：B站账号播放量监测 + 全链路成本台账（尝试性研究）— 2026-06-13
+
+### Added｜全链路成本台账（每条产出 = token + 耗时 + 估算 USD）
+- 背景：`LLMClient` 此前**丢弃了 `resp.usage`**，没有任何 token/成本记录。
+- `src/llm/cost.py`：进程内成本台账。`LLMClient._complete_text` 在唯一出口捕获 `usage`(prompt/completion tokens)+墙钟耗时
+  → `cost.record()`。`cost.track(kind, title)` 上下文管理器用 contextvar 给「当前产出」打唯一标签，退出时把这段时间内**所有
+  LLM 调用**聚合成一条产出（n 次调用 / 总 token / 估算 USD / 墙钟+LLM 耗时）；环形缓冲 + 追加 `data/cost_ledger.jsonl`，
+  启动时回载末尾若干条**跨重启延续**。`PRICING` 按模型公开单价估算（deepseek-v4-flash≈$0.27/$1.10 每百万 in/out）。
+- 接入：`server/app.py` `_run_qa_uncached` 包 `track("qa")`（prefetch 线程用 `copy_context()` 传播标签，否则 analyze 调用漏记）；
+  `/api/ask2` 同样包裹；`clip/server_routes.py` 三个后台任务（录制/切片/预览）经 `_with_cost("clip", …)` 包裹（不改任务体）。
+- 在线实测：一次问答记为 1 产出 = **4 次 LLM 调用 / 30,725+628 token / \$0.008986 / 23.94s**（宽召回完整性修复在此显形为高 prompt token，成本可见）。
+
+### Added｜B 站账号播放量监测（只读）
+- `clip/account_monitor.py`：`resolve_mid()`（URL/UID）+ `fetch_account()` → UP 主近期稿件播放量 + 聚合（粉丝/总稿件/均·中位·最高播放/逐稿播放·播放每天）。
+- **研究结论（尝试性）**：`space/wbi/arc/search` 比 popular/ranking 风控严得多。三步才稳定通过：① 首页 + `finger/spi` 种 buvid3/buvid4
+  （`bilibili_source._bootstrap` 已加）；② 请求带 WebGL 指纹反爬参数 `dm_img_*`（静态占位值即可）；③ 风控随机 → 重试至多 5 次。
+  实测单账号查询稳定成功（影视飓风 16.4M 粉 / 905 稿 / 均播 2.99M，逐稿真实播放量）；连续多账号会触发风控，已知局限——
+  高频/多账号建议配置 `BILIBILI_SESSDATA` 登录态提升稳定性。
+- 接口/页面：`/clipper/api/account`（5min 缓存）、`/clipper/api/cost`、`/clipper/dashboard` 新页 `clip/static/databoard.html`
+  （账号监测 + 成本台账两面板）；`home.html` 第 4 入口「📊 数据看板」；`knav.js` 全局导航加该项。
+
+## 问答列举完整性修复 + 热点洞察破圈（全站+圈内）— 2026-06-13
+
+### Fixed｜列举/聚合类问题答案塌缩（「回答不完整」核心病因）
+- 现象：「羊宮妃那提到过哪些声优朋友？完整列出」在线实测——检索召回 162 段（127 窗口+35 直检），
+  结构化生成却只产出 **1 条 fact**（facts_dropped=0，是模型只生成了一条，非校验丢弃）。即检索不缺，**生成端塌缩**。
+- 根因一：`graph/qa_graph2.py` docstring 承诺的「列举→宽召回」与「CRAG 纠错重试」是**死代码**——
+  `_ENUM_RE` / `_is_abstain` / `two_stage.retrieve(wide=True)` 从未被调用。活动图是扁平 analyze→retrieve→generate。
+- 根因二：结构化 prompt 的「同一事实合并为 1 件」指令在列举题上被过度套用，把**不同项目**也压成一条。
+- 修复：(1) `analyze` 标注 `intent_enum`（`_ENUM_RE` 命中 哪些/全部/清单/前N/排名/时间轴…）；
+  (2) `retrieve2` 对列举题 `wide=True` 双倍召回；(3) `qa_agent.answer_structured(enumerate_mode=)` 追加
+  `ENUM_DIRECTIVE`：走查全部 context、**不同项目必须各自成 fact、不得压缩**，但每条仍须真实 source_id + 通过校验；
+  (4) `generate` 接上 CRAG：首轮 abstain 则 `wide=True` 重检索再生成一次。**不放宽「禁止编造」**——每条 fact 仍带【出处】并经核查。
+- 在线实测（重启后 /api/ask2）：声优朋友 1→**4–5 条**；高频词 top5 1→**4 条**；推荐清单（歌/书/食）→**11 条**，全部带出处。
+  代价：列举题因双倍召回耗时升至约 33–40s（普通题不变；CRAG 还顺带救回了首轮误 abstain 的「为什么叫こもれび」）。
+
+### Changed｜热点洞察破圈：综合热门(全站) + 圈内 双层，不再困在小圈子
+- 现象：`/clipper/api/trends` 在线返回 **0 视频**。根因：只吃 `ranking/v2`（分区排行榜，实测内容**陈旧约 438 天**），
+  叠加 6–48h 时间窗 + VTuber/bangdream 关键词过滤，全部被滤空；而 `/x/web-interface/popular`（综合热门，真正「此刻全站在火」）
+  **完全没用上**。正是用户指出的「局限于小圈子、错过真正热点」。
+- 修复：(1) `bilibili_source.BilibiliClient.popular()` 拉综合热门；`fetch_trends(include_popular=True)` 以其为全站基底（分支 B 也受益）；
+  (2) `server_routes._load_trends_data` 拆 **全站热点**（popular 为主，按动量排序，**不套时间窗**——本机时钟为虚构未来日，时间窗会误杀全部）
+  与 **圈内热点**（关键词命中，可为空=当前圈内无出圈热点）；`factors` 爆火因素同时覆盖圈内+出圈；
+  `distill_features(prerank=False)` 跳过会误杀的内部时间窗。(3) `clipper.html` 改为「🔥全站热点 / 🎯圈内热点」双表。
+- 在线实测：全站热点稳定surface 真热点（jojo宅舞 3.0M、营销烂梗 2.4M、影视杂谈 1.5M…），圈内单列（翻唱/VOCALOID/动漫）；feed 不再空白。
+
+## 前端视觉统一：「こもれび工作台」设计语言 — 2026-06-13
+
+- 背景：三块功能视觉割裂——chat/Radio 为橄榄绿编辑风、home/clipper 为亮绿休闲风、dashboard/ask 为 GitHub 暗色风；页面间无固定导航。
+- **设计语言**（依据功能/人群/痛点）：单人广播内容工作台（问/录/剪），用户为声优广播深度粉丝与内容创作者，长时间高密度使用。视觉隐喻「木漏れ日」：暖纸底 `#faf9f5` + 橄榄叶绿主色 `#667461`（沿用既有成熟色，迁移成本最低）+ 阳光琥珀 `#8a6f42` 点缀；状态语义全站统一（绿=就绪/琥珀=进行中/红=失败）。
+- **Added｜共享设计令牌与全局导航**：`static/theme.css`（`--k-*` 设计令牌 + kdot/kpill 原子组件 + knav 样式）、`static/knav.js`（注入统一导航：主页/对话/Radio 录制/直播切片/入库看板，当前页高亮 + 实时系统健康点，数据来自 /api/health）。所有页面经同源 `/static/` 引用。
+- **Changed｜六页换装**（保持 DOM 结构与 JS 功能不变，局部变量映射到统一令牌）：home.html（重设计：komorebi hero + 三房间卡 + 健康状态）、chat.html、index.html（入库看板，暗→亮）、ask.html（暗→亮）、clip/static/clipper.html、Radio/frontend/{index.html,styles.css}（令牌值对齐）。
+- **Fixed｜入库看板期数列表年久失修**：`loadEpisodes()` 仍在读旧版 API 的 `d.episodes`（接口早已改为 `d.collections`），页面一直空转「加载中」；改为按合集折叠渲染 + 按目录入库（与 chat 页一致），文案同步更新为自动终审语义。
+- Verified：preview 实例逐页截图验证（主页/对话/Radio/切片/看板/单问答），导航高亮、健康点、布局、实时数据（热点榜、会话列表、图谱统计 2480 实体/3774 关系）全部正常，console 无报错。生产 :8000 静态文件按请求读盘，无需重启即生效。
+
 ## 审批中断废除：LLM 上下文终审直接入库 + QA 延迟再降（~15.7s→~9-11s，重复问 0.04s）— 2026-06-13
 
 ### Changed｜入库审批从「人工确认」改为「LLM 上下文终审」（用户决策）

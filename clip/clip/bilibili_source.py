@@ -70,11 +70,20 @@ class BilibiliClient:
         self._bootstrap()
 
     def _bootstrap(self) -> None:
-        """访问首页种下 buvid3 / b_nut cookie，否则榜单/签名接口会被风控拒绝(-352)。"""
+        """访问首页种下 buvid3 / b_nut cookie，否则榜单/签名接口会被风控拒绝(-352)。
+        再调 finger/spi 种 buvid3/buvid4——space/arc/search 风控对此尤其敏感。"""
         try:
             self._http.get("https://www.bilibili.com/")
         except Exception as e:  # noqa: BLE001 — 没种到 cookie 时后续请求自然报错
             print(f"  [warn] B 站首页 cookie 预热失败: {e}")
+        try:
+            data = self._http.get(_API + "/x/frontend/finger/spi").json().get("data", {})
+            if data.get("b_3"):
+                self._http.cookies.set("buvid3", data["b_3"], domain=".bilibili.com")
+            if data.get("b_4"):
+                self._http.cookies.set("buvid4", data["b_4"], domain=".bilibili.com")
+        except Exception as e:  # noqa: BLE001
+            print(f"  [warn] buvid spi 预热失败: {e}")
 
     def close(self):
         self._http.close()
@@ -147,6 +156,37 @@ class BilibiliClient:
                 owner=(v.get("owner") or {}).get("name", ""),
             ))
         return items
+
+    def popular(self, limit: int, pages: int = 1, partition_name: str = "综合热门") -> list[TrendItem]:
+        """综合热门 popular → 全站「真正在火」的热点（跨分区、站点 curated、刷新频繁）。
+
+        与 ranking/v2（分区排行榜，往往是数日/周级的冻结快照）互补：popular 才是
+        「此刻全站什么在火」。无需 WBI 签名。
+        """
+        out: list[TrendItem] = []
+        for pn in range(1, max(1, pages) + 1):
+            data = self._get("/x/web-interface/popular", {"ps": 20, "pn": pn})
+            for v in (data.get("list") or []):
+                stat = v.get("stat", {})
+                out.append(TrendItem(
+                    bvid=v.get("bvid", ""),
+                    aid=int(v.get("aid") or v.get("id") or 0),
+                    title=v.get("title", ""),
+                    desc=v.get("desc", "") or "",
+                    pubdate=int(v.get("pubdate") or 0),
+                    duration=int(v.get("duration") or 0),
+                    view=int(stat.get("view") or 0),
+                    like=int(stat.get("like") or 0),
+                    coin=int(stat.get("coin") or 0),
+                    danmaku=int(stat.get("danmaku") or 0),
+                    reply=int(stat.get("reply") or 0),
+                    partition=partition_name,
+                    tname=v.get("tname", ""),
+                    owner=(v.get("owner") or {}).get("name", ""),
+                ))
+                if len(out) >= limit:
+                    return out
+        return out
 
     def enrich(self, item: TrendItem, n_comments: int = 5) -> None:
         """给单条稿件补 tags + 热评（WBI 签名；失败仅告警不抛）。"""
@@ -228,11 +268,14 @@ def _dur_to_sec(d: str) -> int:
 
 
 def fetch_trends(partitions: str | None = None, keywords: list[str] | None = None,
-                 per_keyword: int = 30) -> list[TrendItem]:
+                 per_keyword: int = 30, include_popular: bool = True,
+                 popular_limit: int = 40) -> list[TrendItem]:
     """抓取热点候选并合并去重。
 
+    include_popular: 先拉「综合热门」作为全站热点基底（默认开），避免只看分区排行
+        而被困在小圈子、错过真正的出圈热点。
     partitions: 逗号分隔的分区名/rid（排行榜）。None 用配置默认。
-    keywords: 关键词搜索（用于无排行榜的「虚拟主播/bangdream」分区）。"""
+    keywords: 关键词搜索（用于「虚拟主播/bangdream」这类无排行榜分区）。"""
     out: list[TrendItem] = []
     seen: set[str] = set()
 
@@ -248,6 +291,11 @@ def fetch_trends(partitions: str | None = None, keywords: list[str] | None = Non
     rids = (clip_config.partition_rids() if partitions is None
             else _parse_partitions(partitions))
     with BilibiliClient() as cli:
+        if include_popular:
+            try:
+                add(cli.popular(popular_limit), "综合热门(全站)")
+            except Exception as e:  # noqa: BLE001 — 热门失败回退到分区/关键词
+                print(f"  [warn] 综合热门拉取失败: {e}")
         for name, rid in rids:
             try:
                 add(cli.ranking(rid, name, clip_config.bilibili_top_per_partition), f"分区 {name}(rid={rid})")

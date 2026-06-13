@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>回声工作台 · 数据看板</title>
+<link rel="stylesheet" href="/static/theme.css">
+<style>
+  :root { --bg:var(--k-bg); --card:var(--k-surface); --line:var(--k-line); --accent:var(--k-acc);
+          --ink:var(--k-ink); --mut:var(--k-mut); }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.6 var(--k-font); background:var(--bg); color:var(--ink); }
+  .wrap { max-width:1100px; margin:0 auto; padding:18px; display:grid; gap:18px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:var(--k-radius); padding:16px; }
+  .card h2 { margin:0 0 4px; font-size:15px; font-weight:650; }
+  .sub { color:var(--mut); font-size:12px; margin-bottom:12px; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  input { flex:1; min-width:220px; padding:8px 10px; border:1px solid var(--k-line-strong); border-radius:8px; font-size:13px;
+          background:var(--bg); color:var(--ink); }
+  button { padding:8px 16px; border:none; border-radius:8px; background:var(--accent); color:#fff; font-size:13px; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--accent); border:1px solid var(--accent); }
+  .stats { display:flex; gap:18px; flex-wrap:wrap; margin:14px 0 8px; }
+  .stat { min-width:110px; }
+  .stat .n { font-size:20px; font-weight:680; color:var(--accent); }
+  .stat .l { font-size:12px; color:var(--mut); }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th,td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--mut); font-weight:600; }
+  td.num,th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  a { color:var(--accent); text-decoration:none; }
+  .mut { color:var(--mut); }
+  .pill { display:inline-block; padding:1px 8px; border-radius:10px; background:var(--bg); border:1px solid var(--line);
+          font-size:12px; margin:2px 4px 2px 0; }
+  .err { color:var(--k-bad, #b4453a); font-size:13px; }
+</style>
+</head>
+<body>
+<nav data-knav="databoard"></nav>
+<script src="/static/knav.js" defer></script>
+
+<div class="wrap">
+
+  <!-- (1) B站账号监测 -->
+  <div class="card">
+    <h2>① B 站账号监测</h2>
+    <div class="sub">输入 UP 主主页链接或 UID，拉取近期稿件播放量（只读公开数据；space 接口风控随机，已自动重试）。</div>
+    <div class="row">
+      <input id="acct" placeholder="space.bilibili.com/946974 或 946974" value="">
+      <button onclick="loadAccount()">查询</button>
+      <button class="ghost" onclick="loadAccount(true)">强制刷新</button>
+    </div>
+    <div id="acctErr" class="err" style="margin-top:8px"></div>
+    <div id="acctBody"></div>
+  </div>
+
+  <!-- (2) 全链路成本台账 -->
+  <div class="card">
+    <h2>② 全链路成本台账（每条产出）
+      <button class="ghost" style="float:right" onclick="loadCost()">刷新</button></h2>
+    <div class="sub">每次问答 / 切片产出 = 其内部所有 LLM 调用之和：token、墙钟耗时、估算成本（按模型公开单价；deepseek-v4-flash≈$0.27/$1.10 每百万 in/out）。</div>
+    <div id="costStats" class="stats"></div>
+    <div id="costKind" style="margin:6px 0 12px"></div>
+    <div style="overflow:auto">
+      <table id="costTab"><thead><tr>
+        <th>时间</th><th>类型</th><th>产出</th><th class="num">调用</th>
+        <th class="num">in/out token</th><th class="num">估算$</th><th class="num">墙钟s</th><th>模型</th>
+      </tr></thead><tbody><tr><td colspan="8" class="mut">加载中…</td></tr></tbody></table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const n = x => Number(x||0).toLocaleString();
+async function jget(u){ const r = await fetch(u); return r.json(); }
+function tsfmt(t){ return t ? new Date(t*1000).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) : ''; }
+function dfmt(t){ return t ? new Date(t*1000).toLocaleDateString('zh-CN') : ''; }
+
+// ---- 账号监测 ----
+async function loadAccount(force){
+  const acct = $('#acct').value.trim();
+  if(!acct){ $('#acctErr').textContent = '请填账号 URL 或 UID'; return; }
+  $('#acctErr').textContent = '';
+  $('#acctBody').innerHTML = '<div class="mut" style="margin-top:10px">查询中（含风控重试，约 5-15s）…</div>';
+  const d = await jget('/clipper/api/account?account='+encodeURIComponent(acct)+'&limit=20'+(force?'&force=true':''));
+  if(d.error){ $('#acctErr').textContent = d.error; $('#acctBody').innerHTML=''; return; }
+  const a = d.account||{}, vids = d.videos||[];
+  $('#acctBody').innerHTML = `
+    <div class="stats">
+      <div class="stat"><div class="n">${esc(a.owner||'—')}</div><div class="l"><a href="${a.space_url}" target="_blank">UID ${a.mid}</a></div></div>
+      <div class="stat"><div class="n">${a.follower!=null?n(a.follower):'—'}</div><div class="l">粉丝</div></div>
+      <div class="stat"><div class="n">${n(a.total_videos)}</div><div class="l">总稿件</div></div>
+      <div class="stat"><div class="n">${n(a.play_avg)}</div><div class="l">近期均播放</div></div>
+      <div class="stat"><div class="n">${n(a.play_median)}</div><div class="l">中位播放</div></div>
+      <div class="stat"><div class="n">${n(a.play_max)}</div><div class="l">最高播放</div></div>
+    </div>
+    <div style="overflow:auto"><table><thead><tr>
+      <th>近期稿件（${vids.length}）</th><th class="num">播放</th><th class="num">播/天</th>
+      <th class="num">评论</th><th class="num">弹幕</th><th>发布</th>
+    </tr></thead><tbody>${vids.map(v=>`<tr>
+      <td><a href="${v.url}" target="_blank">${esc(v.title)}</a></td>
+      <td class="num">${n(v.play)}</td><td class="num">${v.play_per_day!=null?n(v.play_per_day):'—'}</td>
+      <td class="num">${n(v.comment)}</td><td class="num">${n(v.danmaku)}</td><td>${dfmt(v.created)}</td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+
+// ---- 成本台账 ----
+async function loadCost(){
+  const d = await jget('/clipper/api/cost?n=50');
+  const t = d.totals||{}, outs = d.outputs||[];
+  $('#costStats').innerHTML = `
+    <div class="stat"><div class="n">${n(t.n_outputs)}</div><div class="l">产出数</div></div>
+    <div class="stat"><div class="n">${n(t.n_calls)}</div><div class="l">LLM 调用</div></div>
+    <div class="stat"><div class="n">${n(t.total_tokens)}</div><div class="l">总 token</div></div>
+    <div class="stat"><div class="n">$${Number(t.total_cost_usd||0).toFixed(5)}</div><div class="l">总估算成本</div></div>`;
+  $('#costKind').innerHTML = (t.by_kind||[]).map(k=>
+    `<span class="pill">${esc(k.kind)} · ${k.n}条 · $${Number(k.avg_cost_usd||0).toFixed(5)}/条 · ${k.avg_wall_s}s/条</span>`).join('');
+  const tb = $('#costTab tbody');
+  tb.innerHTML = outs.length ? outs.map(o=>`<tr>
+    <td class="mut">${tsfmt(o.ts)}</td><td>${esc(o.kind)}</td>
+    <td>${esc((o.title||'').slice(0,46))}</td><td class="num">${o.n_calls}</td>
+    <td class="num">${n(o.prompt_tokens)}/${n(o.completion_tokens)}</td>
+    <td class="num">$${Number(o.cost_usd||0).toFixed(6)}</td><td class="num">${o.wall_s}</td>
+    <td class="mut">${esc((o.models||[]).join(','))}</td></tr>`).join('')
+    : '<tr><td colspan="8" class="mut">暂无产出记录（去问答或切片产出一条后回来看）</td></tr>';
+}
+loadCost();
+</script>
+</body>
+</html>
