@@ -186,9 +186,24 @@ def _run_job(job_id: str, req: RecordReq):
         from clip.pipeline import pipeline_new
         run_dir = pipeline_new(req.url, profile_id=req.program,
                                dry_run=False, no_render=True, to_telegram=req.telegram)
-        _jobs[job_id].update(status="done", stage="完成", run_dir=str(run_dir))
+        # 转写/摘要是否真的产出（plan.json 里 ingest.summary_ok）。失败不再伪装成「完成」。
+        ingest = _plan_ingest(run_dir)
+        if ingest.get("summary_ok") is False:
+            _jobs[job_id].update(status="error", stage="转写/摘要失败：本场无总结、未入库",
+                                 run_dir=str(run_dir), error=ingest.get("error", "未产出 05_summary.json"))
+        else:
+            _jobs[job_id].update(status="done", stage="完成", run_dir=str(run_dir))
     except Exception as e:  # noqa: BLE001
         _jobs[job_id].update(status="error", stage="失败", error=str(e))
+
+
+def _plan_ingest(run_dir) -> dict:
+    """读 run_dir/plan.json 的 ingest 段，判断本场是否真的产出了总结。"""
+    try:
+        plan = json.loads((Path(run_dir) / "plan.json").read_text("utf-8"))
+        return plan.get("ingest") or {}
+    except Exception:  # noqa: BLE001
+        return {}
 
 
 @router.post("/api/record")

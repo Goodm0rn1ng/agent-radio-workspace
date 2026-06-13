@@ -2,6 +2,24 @@
 
 本项目所有功能性的完善与新增都记录于此。日期为开发日期 (YYYY-MM-DD)。
 
+## 修复 Branch B 上传链接「无总结」+ 失败可见性加固 — 2026-06-13
+
+### Fixed｜上传直播链接不产出总结（核心 NameError，此前静默）
+- 现象：/clipper 提交直播链接后任务显示「完成」，却没有 03/04/05 摘要、setlist 空、plan.json「0 个候选片段」。
+- 根因：`clip/kb_ingest._transcribe_and_summarize` 第一行调用 `_ensure_radio_on_path()`——该函数早已随
+  `radio` 改为统一 venv 的 editable 包而删除，**调用点漏删** → NameError，崩在 STT/翻译/摘要(`run_pipeline`)
+  启动之前，故全程无总结。pyflakes 全项目扫描确认这是 clip + radio_kg + Radio 里**唯一**的未定义名 bug。
+- 修复：删掉死调用（`import radio.pipeline` 现可直接用，已验证）。
+
+### Changed｜失败不再伪装成成功（可见性加固，治本于上面漏诊的成因）
+- 病灶：B-3 `except Exception → [warn] 自动入库失败（不影响剪辑）`，且 `_run_job` 照样标「完成」——把
+  **核心步骤（转写/摘要）失败**和**入图失败**混为一谈，致命失败看着像成功，报错文案也误指为"入库失败"。
+- `kb_ingest.summarize_and_ingest`：拆分核心(转写+摘要)与入图——摘要未产出 05_summary.json 直接 raise；
+  仅入图失败才软吞（摘要已在、不阻断剪辑），返回 `summary_ok` 标志。
+- `pipeline.py` B-3：摘要失败打 `[ERROR]`（非 warn），记 `ingest.summary_ok=False` 入 plan.json；chapter 级切片仍继续。
+- `server_routes._run_job`：据 plan.json 的 `ingest.summary_ok` 把任务置为 **error /「转写/摘要失败：本场无总结、未入库」**，
+  不再无脑「完成」。
+
 ## 数据看板：B站账号播放量监测 + 全链路成本台账（尝试性研究）— 2026-06-13
 
 ### Added｜全链路成本台账（每条产出 = token + 耗时 + 估算 USD）

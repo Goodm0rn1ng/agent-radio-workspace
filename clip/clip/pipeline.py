@@ -111,9 +111,11 @@ def pipeline_new(url: str, profile_id: str | None = None,
         try:
             from clip.kb_ingest import summarize_and_ingest
             ingest_info = summarize_and_ingest(live, profile=profile)
-        except Exception as e:  # noqa: BLE001 — 入库失败不阻断剪辑分支
-            print(f"  [warn] 自动入库失败（不影响剪辑）：{e}")
-            ingest_info = {"error": str(e)}
+        except Exception as e:  # noqa: BLE001 — 转写/摘要失败=本场无总结：大声标记
+            # 不再静默成 warn：这是核心步骤失败（无总结=无法二创），但 chapter 级切片
+            # 仍可继续，故记录失败而不中断；任务状态由 _run_job 据此置为失败。
+            print(f"  [ERROR] 转写/摘要失败，本场无总结、未入库：{e}")
+            ingest_info = {"summary_ok": False, "error": str(e)}
 
     # 本场歌枠区块/曲目（仅曲名，无歌词）
     episode_dir = live.video_path.parent if live.video_path else None

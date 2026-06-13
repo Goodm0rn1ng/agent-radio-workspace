@@ -150,7 +150,7 @@ def _transcribe_and_summarize(live: LiveMeta, work_dir: Path,
     profile 提供时：把节目处理方案的专名词典并入 Radio settings（仅内存，不改其配置文件），
     并用方案里的节目名作 display_name。
     """
-    _ensure_radio_on_path()
+    # radio 现已作为 editable 包装进工作区唯一 venv，直接 import 即可（见 clip/__init__.py）。
     import radio.pipeline as rp
     from radio.config import load_settings
 
@@ -240,8 +240,19 @@ def summarize_and_ingest(live: LiveMeta, profile=None) -> dict:
     # 归档方案：视频已下载到归档 episode 目录（= 视频所在目录），03/04/05 也产在此。
     work_dir = Path(live.video_path).parent
     auto_policy = getattr(profile, "auto_policy", "confirm") if profile else "confirm"
+    # 核心：转写+摘要。失败 = 本场没有总结、无内容可二创，抛出让上层大声标记，
+    # 而不是和"入图失败"一样被当成无关紧要的 warn（那正是之前漏诊的原因）。
     _transcribe_and_summarize(live, work_dir, profile=profile)
-    info = ingest_folder_auto(str(work_dir), auto_policy=auto_policy, profile=profile)
+    if not (work_dir / "05_summary.json").exists():
+        raise RuntimeError(f"转写/摘要未产出 05_summary.json（{work_dir.name}）")
+    # 入图失败才是真正"不阻断剪辑"的：摘要已产出，仅吞掉写图错误。
+    try:
+        info = ingest_folder_auto(str(work_dir), auto_policy=auto_policy, profile=profile)
+        info["ingested"] = True
+        print(f"  自动入库完成（auto_policy={auto_policy}，无审查）：{info['before']} → {info['after']}")
+    except Exception as e:  # noqa: BLE001 — 摘要已产出，入图失败不阻断剪辑
+        print(f"  [warn] 入图失败（摘要已产出，不影响剪辑）：{e}")
+        info = {"ingested": False, "ingest_error": str(e)}
     info["episode_dir"] = str(work_dir)
-    print(f"  自动入库完成（auto_policy={auto_policy}，无审查）：{info['before']} → {info['after']}")
+    info["summary_ok"] = True
     return info
