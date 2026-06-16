@@ -155,28 +155,43 @@ def _transcribe_and_summarize(live: LiveMeta, work_dir: Path,
     from radio.config import load_settings
 
     # 关闭外发副作用：Telegram 推送 + radio_kg 自动 handoff（那条会走审查）。
+    # rp.* 是共享模块全局、os.environ 是进程级；clip 与正常录制 pipeline 同进程，
+    # 必须 try/finally 还原，否则会永久污染正常录制（使其静默不再推送 Telegram）。
+    _orig_send = rp.send_to_telegram
+    _orig_notify = rp.notify_pipeline_failure
+    _orig_auto = os.environ.get("RADIO_KG_AUTO_INGEST")
+    _orig_auto_url = os.environ.get("RADIO_KG_AUTO_INGEST_URL")
     rp.send_to_telegram = _noop
     rp.notify_pipeline_failure = _noop
     os.environ["RADIO_KG_AUTO_INGEST"] = "0"
     os.environ.pop("RADIO_KG_AUTO_INGEST_URL", None)
+    try:
+        settings = load_settings(_RADIO_CONFIG)
+        display_name = live.title
+        if profile is not None:
+            settings = _settings_with_profile_translation(settings, profile, work_dir)
+            display_name = profile.kg_program_name or profile.display_name
 
-    settings = load_settings(_RADIO_CONFIG)
-    display_name = live.title
-    if profile is not None:
-        settings = _settings_with_profile_translation(settings, profile, work_dir)
-        display_name = profile.kg_program_name or profile.display_name
-
-    work_dir.mkdir(parents=True, exist_ok=True)
-    # 源是视频（常为 AV1）→ Radio 的音频分段器无法把视频流塞进 m4a。先抽纯音频供 STT，
-    # 视频原样保留在归档目录供切片二创。
-    audio_path = _extract_audio(Path(live.video_path), work_dir)
-    asyncio.run(rp.run_pipeline(
-        audio_path=audio_path,
-        settings=settings,
-        display_name=display_name,
-        source="clipper_youtube",
-        work_dir=work_dir,
-    ))
+        work_dir.mkdir(parents=True, exist_ok=True)
+        # 源是视频（常为 AV1）→ Radio 的音频分段器无法把视频流塞进 m4a。先抽纯音频供 STT，
+        # 视频原样保留在归档目录供切片二创。
+        audio_path = _extract_audio(Path(live.video_path), work_dir)
+        asyncio.run(rp.run_pipeline(
+            audio_path=audio_path,
+            settings=settings,
+            display_name=display_name,
+            source="clipper_youtube",
+            work_dir=work_dir,
+        ))
+    finally:
+        rp.send_to_telegram = _orig_send
+        rp.notify_pipeline_failure = _orig_notify
+        for _key, _val in (("RADIO_KG_AUTO_INGEST", _orig_auto),
+                           ("RADIO_KG_AUTO_INGEST_URL", _orig_auto_url)):
+            if _val is None:
+                os.environ.pop(_key, None)
+            else:
+                os.environ[_key] = _val
     return work_dir
 
 

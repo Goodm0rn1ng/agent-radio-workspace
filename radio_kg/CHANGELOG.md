@@ -2,6 +2,18 @@
 
 本项目所有功能性的完善与新增都记录于此。日期为开发日期 (YYYY-MM-DD)。
 
+## 修复 clip 入库污染全局致 Telegram 静默不推送 + 合并 feat/qa-trends-databoard（数据看板归位）— 2026-06-17
+
+### Fixed｜clip 的 `_transcribe_and_summarize` monkeypatch 泄漏到同进程的正常录制 pipeline
+- 现象：正常录制 pipeline `Pipeline 完成 ✅` 但无任何 Telegram 推送日志、无 handoff；metrics `send_to_telegram` 步骤仅 ~10µs、`telegram_messages_sent` 仍记 3（事后估算值），凭据/网络实测正常。
+- 根因：`clip/clip/kb_ingest.py` 为关闭外发副作用，直接改 `rp.send_to_telegram = _noop` / `rp.notify_pipeline_failure = _noop` 与 `os.environ["RADIO_KG_AUTO_INGEST"]="0"`，**改完不还原**。clip 路由经 `app.include_router(clipper_router)` 与 Radio 录制 pipeline 同在 radio_kg server 进程；跑过一次 clip 入库后，`radio.pipeline` 模块全局与进程环境被永久污染，此后该进程所有正常录制都静默跳过 Telegram 推送与 KG handoff。
+- 修复：`kb_ingest.py` 把 monkeypatch + 环境变量改写用 `try/finally` 保存原值并在 `run_pipeline` 后还原（含 `RADIO_KG_AUTO_INGEST` / `RADIO_KG_AUTO_INGEST_URL` 的 set-or-pop）。
+- 补救：重启 radio-kg-server 清掉已污染进程内存；用现成 `05_summary.json`+双语 txt 重推遗漏的 #63 两期（アーカイブ/こもればなし），重推临时关掉小红书避免重复入队草稿。
+
+### Changed｜合并 `feat/qa-trends-databoard`（快进，2 提交）—— 数据看板回到 main
+- 此前 `clip/static/databoard.html`（数据看板）+ `/clipper/dashboard` 路由 + `account_monitor.py` / `cost.py` / `knav.js` / `theme.css` 只在未合并分支上，main 无此文件，访问 `/clipper/dashboard` 在残留旧进程上报 500。
+- 已快进合并：数据看板、账号监控（`/clipper/api/account`）、成本统计（`/clipper/api/cost`）、QA 完整性改进、Branch B 上传无总结修复一并进入 main。
+
 ## 修复 Branch B 上传链接「无总结」+ 失败可见性加固 — 2026-06-13
 
 ### Fixed｜上传直播链接不产出总结（核心 NameError，此前静默）
