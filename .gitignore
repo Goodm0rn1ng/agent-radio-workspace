@@ -41,6 +41,11 @@ radio_kg/data/eval_qa20_*.json
 radio_kg/data/index_version.json
 radio_kg/data/project_metrics_*
 radio_kg/data/test_metrics_run/
+radio_kg/data/eval_qa20.json
+
+# 蒸馏产物：源自真实听众来信/主持人发言，可由 build_persona 从原始数据重新生成，
+# 不应作为「代码」随仓库分发（版权/听众隐私考量）。
+radio_kg/persona/
 
 # clip 运行产物（成片/任务状态）与独立 ASR venv
 clip/data/
