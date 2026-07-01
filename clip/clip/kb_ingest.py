@@ -59,6 +59,20 @@ def _settings_with_profile_translation(settings, profile, work_dir: Path):
     if stt_prompt.strip():
         updates["stt"] = settings.stt.model_copy(update={"prompt": stt_prompt.strip()})
 
+    # 节目专属总结：整段提示词模板 + 长度/highlight 数 + 侧重风格。直播口径（歌枠/雑談）
+    # 与默认的声优广播复盘模板差异大，故每个方案可独立覆盖；都缺省时回退全局默认。
+    summary_updates: dict = {
+        "summary_style": getattr(profile, "summary_style", "") or "",
+        "style_exemplar": getattr(profile, "summary_exemplar", "") or "",
+    }
+    if getattr(profile, "summary_prompt_path", None) is not None:
+        summary_updates["prompt_path"] = profile.summary_prompt_path
+    if getattr(profile, "summary_max_chars", None) is not None:
+        summary_updates["max_summary_chars"] = profile.summary_max_chars
+    if getattr(profile, "summary_highlight_count", None) is not None:
+        summary_updates["target_highlight_count"] = profile.summary_highlight_count
+    updates["summary"] = settings.summary.model_copy(update=summary_updates)
+
     return settings.model_copy(update=updates)
 
 

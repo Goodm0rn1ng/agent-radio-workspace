@@ -10,6 +10,7 @@
     ["chat", "/chat", "对话"],
     ["radio", "/radio", "Radio 录制"],
     ["clipper", "/clipper", "直播切片"],
+    ["programs", "/clipper/programs", "节目方案"],
     ["databoard", "/clipper/dashboard", "数据看板"],
     ["dashboard", "/dashboard", "入库看板"],
   ];

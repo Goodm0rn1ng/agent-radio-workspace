@@ -1,0 +1,119 @@
+program_id: sengoku_yuno
+display_name: 夢限大みゅーたいぷ 千石由乃
+performer: 千石由乃（千石ユノ / Yuno Sengoku）
+band: 夢限大みゅーたいぷ（Mugendai Mewtype / Yumemita）
+channel_url: https://www.youtube.com/@yuno_yumemita
+channel_id: ''
+accent_color: '#EE5577'
+profile_notes: 千石由乃是 BanG Dream! 虚拟乐队「夢限大みゅーたいぷ」的 DJ ＆ Manipulator（合成器操作手），Live2D
+  VTuber。她是 16 岁的低能量宅女，热爱游戏、看漫画和收集卡片，直播类型包括歌枠（アニソン为主）、雑談、游戏实况。官方设定为松弛系，待人冷酷平淡实则重情重义，是团内的常识人。招牌问候「やほ」，直播
+  tag「#ユノの生存報告」，粉丝名「YUNO's」。
+processing:
+  language: ja
+  translate_to: zh
+  translation_prompt_path: ''
+  stt_prompt: VTuber、歌枠、配信、千石ユノ、ユノ、夢限大みゅーたいぷ、BanG Dream
+  summary_prompt_path: _live_summarize.txt
+  summary:
+    max_summary_chars: 700
+    target_highlight_count: 0
+  summary_style: 以「松弛系 DJ + 隐藏重情」的语气总结。重点抓取：1) 歌枠曲目 setlist（曲名/原作动画，日文原名优先）；2) 雑談话题与名场面（游戏趣事、与粉丝互动、团内吐槽）；3)
+    与乐队成员相关的提及（特に与野乃花、律的互动）；4) 招牌问候「やほ」与情绪转折点（如打不开瓶盖等萌点）。
+  viral_focus: 歌枠翻唱的アニソン是否命中 B 站热门动画曲；DJ 活动片段；名场面「打不开瓶盖」「社長照片震撼」等。
+  host:
+    canonical: 千石由乃
+    type: Person
+    aliases:
+    - ユノ
+    - 由乃
+    - ユノち
+    - Yunocchi
+    - Sengoku Yuno
+    - Yuno Sengoku
+  name_corrections:
+    むげんだいみゅーたいぷ: 夢限大みゅーたいぷ
+    無限大みゅーたいぷ: 夢限大みゅーたいぷ
+    ゆの: ユノ
+    せんごくゆの: 千石ユノ
+    千石ゆの: 千石ユノ
+  terminology:
+    夢限大みゅーたいぷ: 夢限大みゅーたいぷ
+    Mugendai Mewtype: 夢限大Mewtype
+    Yumemita: 夢限大Mewtype
+    ゆめみた: 夢限大Mewtype（ゆめみた）
+    千石ユノ: 千石由乃
+    ユノ: 由乃
+    Sengoku Yuno: 千石由乃
+    仲町あられ: 仲町阿拉蕾
+    宮永ののか: 宫永乃乃香
+    峰月律: 峰月律
+    藤都子: 藤都子
+    BanG Dream!: BanG Dream!
+    バンドリ: BanG Dream!
+    '#みてユノ': '#みてユノ'
+    '#ユノの生存報告': '#ユノの生存報告'
+    '#ユノ展': '#ユノ展'
+    '#ユノちとヴァンガード': '#ユノちとヴァンガード'
+    YUNO's: YUNO's
+    やほ: やほ
+    夢現妄想世界: 《夢現妄想世界》
+    コミュ着火Fire!: 《コミュ着火Fire!》
+    コハク: 《コハク》
+    Hi-Vision: 《Hi-Vision》
+    TRASH LIFE: 《TRASH LIFE》
+    テレパシー: 《テレパシー》
+    真夜中遊園地: 《真夜中遊園地》
+    グラディエント: 《グラディエント》
+    LET'Sあちあちトレーニング！: 《LET'Sあちあちトレーニング！》
+    アイの夢限: 《アイの夢限》
+    どんがらがっしゃん: 《どんがらがっしゃん》
+    みゅーたんとミュータント: 《みゅーたんとミュータント》
+    チューニング: 《チューニング》
+    Dream Voyage: 《Dream Voyage》
+    Calling: 《Calling》
+    超惑星Xへの旅: 《超惑星Xへの旅》
+    やわやわNERD 超FreQuency: 《やわやわNERD 超FreQuency》
+    新人類は仮想世界の夢を見るか？: 《新人類は仮想世界の夢を見るか？》
+    限界現実サバイブ天使: 《限界現実サバイブ天使》
+    エンプティパペット: 《エンプティパペット》
+    ビッグマウス: 《ビッグマウス》
+    ✞animaるパーティ✞開催中✞: 《✞animaるパーティ✞開催中✞》
+    YoU kNOw the overture (feat. ななひら): 《YoU kNOw the overture (feat. ななひら)》
+    CH4NGE: 《CH4NGE》
+    絶え間なく藍色: 《絶え間なく藍色》
+    撫でんな: 《撫でんな》
+    なにやってもうまくいかない: 《なにやってもうまくいかない》
+    マーシャル・マキシマイザー: 《マーシャル・マキシマイザー》
+    ZEAL of proud: 《ZEAL of proud》
+    繰り返し一粒: 《繰り返し一粒》
+  members:
+  - name: 仲町あられ
+    yomi: なかまち あられ
+    role: Vocal
+    color: '#FFEE55'
+  - name: 宮永ののか
+    yomi: みやなが ののか
+    role: Lead Guitar
+    color: '#FFBBCC'
+  - name: 峰月律
+    yomi: みねつき りつ
+    role: Rhythm Guitar
+    color: '#4477CC'
+  - name: 藤都子
+    yomi: ふじ みやこ
+    role: Keyboard
+    color: '#9977CC'
+  - name: 千石ユノ
+    yomi: せんごく ゆの
+    role: DJ & Manipulator
+    color: '#EE5577'
+    self: true
+archiving:
+  collection_id: yuno_sengoku
+  recordings_root: ../Radio/data/recordings
+  episode_dir_template: '{date}_{label}'
+  kg_program_name: 夢限大みゅーたいぷ 千石由乃
+  auto_policy: confirm
+  keep_source_video: true
+  auto_telegram: true
+  products: []

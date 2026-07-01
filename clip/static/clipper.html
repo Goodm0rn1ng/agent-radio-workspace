@@ -19,6 +19,13 @@
   label { display:block; font-size:12px; color:var(--mut); margin:8px 0 3px; }
   input,select { width:100%; padding:8px 10px; border:1px solid var(--k-line-strong); border-radius:8px; font-size:13px;
                  background:var(--card); color:var(--ink); }
+  textarea { width:100%; padding:8px 10px; border:1px solid var(--k-line-strong); border-radius:8px;
+             background:var(--card); color:var(--ink); font:12px/1.55 var(--k-mono,monospace); resize:vertical; }
+  .schema { font-size:12.5px; }
+  .schema .f { padding:3px 0; border-bottom:1px dashed var(--line); }
+  .schema .f b { color:var(--accent); } .schema .f .ty { color:var(--mut); font-size:11px; margin-left:4px; }
+  .schema .sub { margin-left:14px; color:var(--mut); }
+  .params { background:var(--k-acc-soft); border-radius:8px; padding:8px 10px; margin:8px 0; font-size:12.5px; }
   .row { display:flex; gap:10px; } .row > * { flex:1; }
   button { background:var(--accent); color:var(--k-acc-ink); border:0; border-radius:8px; padding:9px 14px; cursor:pointer; font-size:13px; }
   button:hover { background:var(--k-acc-deep); }
@@ -129,9 +136,11 @@
       </select></div>
       <div><label>模型覆盖（可空）</label><input id="m_llm_model" placeholder="如 claude-haiku-4-5 / deepseek-chat"></div>
     </div>
-    <div style="margin-top:12px"><button onclick="doSlice()">切片（含二次精听字幕）</button></div>
+    <div style="margin-top:12px"><button onclick="doSlice()">切片（含二次精听字幕）</button>
+      <button class="ghost" onclick="loadRecoverable()" style="margin-left:8px">🔁 恢复已切预览</button></div>
     <div id="m_jobs" style="margin-top:12px"></div>
-    <div class="mut" style="margin-top:6px">谈话段用 Parakeet 二次精听（跟随语音、去幻觉）；选择 LLM 后会把短片谈话文本整体交给模型理解上下文并逐句重译。范围内歌曲段按歌词策略处理。</div>
+    <div id="m_recover" style="margin-top:8px"></div>
+    <div class="mut" style="margin-top:6px">谈话段用 Parakeet 二次精听（跟随语音、去幻觉）；选择 LLM 后会把短片谈话文本整体交给模型理解上下文并逐句重译。范围内歌曲段按歌词策略处理。切完即使刷新/离开，也可在这里或上方任务列表重新打开审核卡。</div>
   </div>
 
   <!-- (4') 字幕审核 & 视频预览 -->
@@ -158,6 +167,19 @@
 	      <button onclick="assemble()">组装成片（烧录字幕）</button>
 	      <span id="pv_result" class="mut" style="margin-left:10px"></span>
 	    </div>
+	    <div style="border-top:1px dashed var(--line);margin-top:12px;padding-top:10px">
+	      <div class="mut" style="margin-bottom:6px">🔧 发现听错/译错的专名？一键写回本方案，以后自动纠正（治本于源头）：</div>
+	      <div class="row" style="align-items:flex-end">
+	        <div style="flex:1"><label>错（ASR/旧译写法）</label><input id="cor_wrong" placeholder="如 峰乐律"></div>
+	        <div style="flex:1"><label>对（正确写法）</label><input id="cor_right" placeholder="如 峰月律"></div>
+	        <div style="flex:0 0 130px"><label>类型</label><select id="cor_kind">
+	          <option value="name_corrections">人名/专名纠错</option>
+	          <option value="terminology">中文术语统一</option>
+	        </select></div>
+	        <div style="flex:0 0 auto"><button class="ghost" onclick="addCorrection()">加入方案</button></div>
+	      </div>
+	      <span id="cor_msg" class="mut"></span>
+	    </div>
   </div>
 
   <!-- (5) 节目报告 -->
@@ -171,19 +193,24 @@
     <div id="report"><span class="mut">选择期后点「生成报告」。</span></div>
   </div>
 
+  <!-- 节目方案设置已独立为顶层页面：见导航「节目方案」(/clipper/programs) -->
+
 </div>
 <script>
 const $=s=>document.querySelector(s);
 async function jget(u){ const r=await fetch(u); return r.json(); }
 async function jpost(u,b){ const r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}); return r.json(); }
+async function jput(u,b){ const r=await fetch(u,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}); return {ok:r.ok, body:await r.json()}; }
 
 // ---- programs ----
-jget('/clipper/api/programs').then(d=>{
-  const opts = d.programs.map(p=>`<option value="${p.id}">${p.display_name}${p.auto_telegram?' ⚡':''}</option>`).join('') || '<option value="">(无方案)</option>';
-  $('#program').innerHTML = opts;
-  $('#m_program').innerHTML = opts; $('#r_program').innerHTML = opts;
-  loadEpisodes(); loadEpisodes('r');
-});
+function loadProgramList(){
+  return jget('/clipper/api/programs').then(d=>{
+    const opts = (d.programs||[]).map(p=>`<option value="${p.id}">${p.display_name}${p.auto_telegram?' ⚡':''}</option>`).join('') || '<option value="">(无方案)</option>';
+    $('#program').innerHTML = opts;
+    $('#m_program').innerHTML = opts; $('#r_program').innerHTML = opts;
+  });
+}
+loadProgramList().then(()=>{ loadEpisodes(); loadEpisodes('r'); });
 
 // ---- episodes (manual slice + report) ----
 function fmtHMS(s){ s=Math.floor(s); const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60; return (h?h+':':'')+String(m).padStart(h?2:1,'0')+':'+String(x).padStart(2,'0'); }
@@ -252,6 +279,18 @@ function renderCues(){
 }
 function editCue(i,k,v){ if(pvCues[i]){ pvCues[i][k]=v; syncOverlay(); } }
 function dropCue(i){ pvCues.splice(i,1); renderCues(); }
+// 纠错回流：把「错→对」写进当前方案的 name_corrections / terminology
+async function addCorrection(){
+  const prog=$('#m_program').value;
+  const wrong=$('#cor_wrong').value.trim(), right=$('#cor_right').value.trim();
+  if(!prog){ $('#cor_msg').textContent='✗ 请先在上方选节目方案'; return; }
+  if(!wrong||!right){ $('#cor_msg').textContent='✗ 错/对都要填'; return; }
+  $('#cor_msg').textContent='写入中…';
+  const r=await jpost('/clipper/api/programs/'+encodeURIComponent(prog)+'/correction',
+    {section:$('#cor_kind').value, wrong, right});
+  if(r.id){ $('#cor_msg').textContent=`✅ 已写入「${wrong} → ${right}」到 ${prog} 的 ${r.section}`; $('#cor_wrong').value=''; $('#cor_right').value=''; }
+  else { $('#cor_msg').textContent='✗ '+(r.detail||'写入失败'); }
+}
 function seekCue(i){ const v=$('#pv_video'); if(pvCues[i]){ v.currentTime=pvCues[i].start+0.01; v.play(); } }
 function syncOverlay(){
   const v=$('#pv_video'), t=v.currentTime; let cur=-1;
@@ -321,12 +360,40 @@ async function submitJob(){
 }
 async function pollJobs(){
   const d=await jget('/clipper/api/jobs');
-  $('#jobs').innerHTML=(d.jobs||[]).slice(0,6).map(j=>`<div class="job">
-    <span class="pill">${j.status}</span> ${j.stage||''} · <span class="mut">${(j.url||'').slice(0,46)}</span>
-    ${j.error?`<div class="mut" style="color:#c33">${j.error}</div>`:''}</div>`).join('');
+  $('#jobs').innerHTML=(d.jobs||[]).slice(0,8).map(j=>{
+    const isPrev=j.kind==='preview';
+    // 切片预览跑完后可重新打开审核卡（避免刷新/离开页面丢失 pvJob 导致审核界面消失）
+    const reopen=(isPrev&&j.status==='done')
+      ? ` · <a href="#" onclick="reopenPreview('${j.id}');return false">▸ 审核 / 切片</a>` : '';
+    const label=isPrev?('切片 '+(j.range||'')):(j.url||'').slice(0,46);
+    return `<div class="job"><span class="pill">${j.status}</span> ${j.stage||''} · <span class="mut">${esc(label)}</span>${reopen}
+      ${j.error?`<div class="mut" style="color:#c33">${esc(j.error)}</div>`:''}</div>`;
+  }).join('');
   if((d.jobs||[]).some(j=>j.status==='running'||j.status==='queued')) setTimeout(pollJobs,4000);
 }
 pollJobs();
+// 重新接上一个已完成的切片预览任务（在服务未重启、任务仍在内存时可用）：载入 cues + 视频到审核卡
+function reopenPreview(id){ pvJob=id; $('#pv_result').textContent=''; $('#m_jobs').innerHTML=''; pollPreview(); }
+// 从磁盘恢复已切好但内存已丢失（刷新/重启）的预览，重建任务后打开审核卡
+async function loadRecoverable(){
+  $('#m_recover').innerHTML='<span class="mut">扫描已切预览…</span>';
+  const d=await jget('/clipper/api/slice/recoverable');
+  const items=d.items||[];
+  if(!items.length){ $('#m_recover').innerHTML='<span class="mut">没有可恢复的已切预览。</span>'; return; }
+  $('#m_recover').innerHTML=items.map(it=>`<div class="job">
+    <span class="pill">已切</span> ${esc(it.range)} · ${it.n_cues} 句${it.assembled?' · 已烧录':''}
+    · <span class="mut">${esc(it.name)}</span>
+    · <a href="#" onclick='recoverPreview(${JSON.stringify(it.dir)});return false'>▸ 审核 / 切片</a></div>`).join('');
+}
+async function recoverPreview(dir){
+  $('#m_recover').innerHTML='<span class="mut">恢复中…</span>';
+  const r=await jpost('/clipper/api/slice/recover',{dir, program:$('#m_program').value||null});
+  if(r.error){ $('#m_recover').innerHTML='<span class="mut" style="color:#c33">✗ '+esc(r.error)+'</span>'; return; }
+  $('#m_recover').innerHTML='';
+  reopenPreview(r.job_id);
+}
+
+// 节目方案设置已迁到独立页面 /clipper/programs（见导航「节目方案」）。
 </script>
 </body>
 </html>

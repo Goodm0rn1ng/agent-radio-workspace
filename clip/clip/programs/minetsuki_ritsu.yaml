@@ -42,7 +42,14 @@ processing:
     type: Person
     aliases: [りつ, 律, 峰月, みねつき, りっちゃん, りっちゃ, Minetsuki Ritsu]
 
-  # 总结侧重（喂给二次创作/标题/文案；也作为人读指引）
+  # 节目专属总结提示词（覆盖全局声优广播口径，改用 VTuber 直播/歌枠 口径）
+  summary_prompt_path: minetsuki_ritsu_summarize.txt
+  # 总结参数（覆盖全局默认 max_summary_chars=600 / target_highlight_count=5）
+  summary:
+    max_summary_chars: 700
+    target_highlight_count: 0      # 直播不推 highlight 消息，setlist 走 sections.music
+
+  # 总结侧重（注入提示词 {summary_style} 槽；也喂给二次创作/标题/文案）
   summary_style: |
     以「ポンコツ可爱 + 多才创作者」的语气总结。重点抓取：
     1) 歌枠曲目 setlist（曲名/原作动画，日文原名优先）；

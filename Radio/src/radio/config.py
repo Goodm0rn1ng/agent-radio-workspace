@@ -132,6 +132,10 @@ class SummaryConfig(BaseModel):
     max_summary_chars: int = 600
     max_output_tokens: int = 32768
     target_highlight_count: int = 5
+    # 节目专属总结侧重（注入 prompt 的 {summary_style} 槽）。空＝无特别侧重（现状）。
+    summary_style: str = ""
+    # few-shot 范例总结（注入 {style_exemplar} 槽）：学其语气/结构，不照抄内容。空＝不注入。
+    style_exemplar: str = ""
     prompt_path: Path = Path("src/radio/prompts/summarize.txt")
     segments_library_path: Path = Path("config/segments_library.yaml")
     # 跑节目时，LLM 发现的 is_recurring=False 新环节是否自动追加到 library

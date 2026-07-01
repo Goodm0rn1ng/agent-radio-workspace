@@ -48,6 +48,11 @@ def clipper_page():
     return FileResponse(_STATIC / "clipper.html", headers={"Cache-Control": "no-store"})
 
 
+@router.get("/programs")
+def programs_page():
+    return FileResponse(_STATIC / "programs.html", headers={"Cache-Control": "no-store"})
+
+
 @router.get("/api/programs")
 def list_programs():
     d = Path(__file__).resolve().parent / "programs"
@@ -61,6 +66,210 @@ def list_programs():
         except Exception:  # noqa: BLE001
             out.append({"id": y.stem, "display_name": y.stem})
     return {"programs": out}
+
+
+@router.get("/api/programs/{program_id}")
+def program_detail(program_id: str):
+    """节目方案完整明细（原始 yaml 文本 + 自带提示词全文），供前端编辑。"""
+    from fastapi import HTTPException
+
+    from clip.program_profile import profile_detail
+    try:
+        return profile_detail(program_id)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+class ProgramSave(BaseModel):
+    yaml_text: str
+    summary_prompt: str | None = None
+    translation_prompt: str | None = None
+
+
+@router.put("/api/programs/{program_id}")
+def program_save(program_id: str, body: ProgramSave):
+    """保存编辑后的节目方案（yaml 逐字写回，保留注释）。"""
+    from fastapi import HTTPException
+
+    from clip.program_profile import save_profile
+    try:
+        return save_profile(
+            program_id,
+            body.yaml_text,
+            summary_prompt_text=body.summary_prompt,
+            translation_prompt_text=body.translation_prompt,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+class ProgramDraft(BaseModel):
+    description: str
+    channel_url: str | None = None
+
+
+@router.post("/api/programs/draft")
+def program_draft(body: ProgramDraft):
+    """信息收集 agent：自然语言描述 → 抓取 ACG/声优资料站 → LLM 合成方案草稿（不落盘）。"""
+    from fastapi import HTTPException
+
+    from clip.profile_research import research_profile
+    if not (body.description or "").strip():
+        raise HTTPException(status_code=400, detail="请填写节目描述")
+    try:
+        res = research_profile(body.description, channel_url=body.channel_url)
+    except Exception as e:  # noqa: BLE001 - 调研失败回前端而非 500 静默
+        raise HTTPException(status_code=502, detail=f"调研失败：{e}") from e
+    return {"program_id": res.program_id, "yaml_text": res.yaml_text,
+            "sources": res.sources, "notes": res.notes}
+
+
+class DryRunReq(BaseModel):
+    program: str | None = None
+    episode_dir: str
+    summary_prompt: str | None = None          # 草稿提示词全文；空＝用方案/全局默认
+    summary_style: str | None = None
+    style_exemplar: str | None = None          # few-shot 范例总结
+    max_summary_chars: int | None = None
+    target_highlight_count: int | None = None
+
+
+@router.post("/api/programs/dryrun")
+def program_dryrun(req: DryRunReq):
+    """用（可能未保存的）草稿设置，在选定样片上实跑一次总结，返回真实 Summary。
+
+    summary_* 字段缺省＝沿用该方案/全局默认（用于「改前」对照）；提供＝草稿覆盖（「改后」）。
+    无副作用：临时提示词写 temp、auto_append_new_segments=False。
+    """
+    import asyncio
+    import shutil
+    import tempfile
+    from fastapi import HTTPException
+
+    ep = Path(req.episode_dir)
+    bil = ep / "04_bilingual_segments.json"
+    if not bil.exists():
+        raise HTTPException(status_code=400, detail="该期缺少 04_bilingual_segments.json，无法试运行")
+
+    from radio.config import load_settings
+    from radio.models import Segment
+    from radio.summarize import summarize
+    from clip.kb_ingest import _RADIO_CONFIG, _settings_with_profile_translation
+
+    tmpd = Path(tempfile.mkdtemp(prefix="_dryrun_"))
+    try:
+        settings = load_settings(_RADIO_CONFIG)
+        program_name = ""
+        if req.program:
+            try:
+                from clip.program_profile import load_profile
+                prof = load_profile(req.program)
+                settings = _settings_with_profile_translation(settings, prof, tmpd)
+                program_name = prof.kg_program_name or prof.display_name
+            except Exception:  # noqa: BLE001 — 方案加载失败则用全局默认
+                pass
+        su: dict = {"auto_append_new_segments": False}
+        if req.summary_prompt and req.summary_prompt.strip():
+            p = tmpd / "_dryrun_summarize.txt"
+            p.write_text(req.summary_prompt, encoding="utf-8")
+            su["prompt_path"] = p
+        if req.summary_style is not None:
+            su["summary_style"] = req.summary_style
+        if req.style_exemplar is not None:
+            su["style_exemplar"] = req.style_exemplar
+        if req.max_summary_chars:
+            su["max_summary_chars"] = req.max_summary_chars
+        if req.target_highlight_count is not None:
+            su["target_highlight_count"] = req.target_highlight_count
+        settings = settings.model_copy(update={"summary": settings.summary.model_copy(update=su)})
+
+        segs = [Segment(**s) for s in json.loads(bil.read_text("utf-8"))]
+        try:
+            res = asyncio.run(summarize(segs, settings, program_name=program_name))
+        except Exception as e:  # noqa: BLE001
+            raise HTTPException(status_code=502, detail=f"试运行失败：{e}") from e
+    finally:
+        shutil.rmtree(tmpd, ignore_errors=True)
+
+    d = res.model_dump()
+    return {"model": settings.summary.model,
+            "summary": d.get("summary", ""),
+            "sections": [{"title_ja": s.get("title_ja", ""), "time_range": s.get("time_range", ""),
+                          "content": s.get("content", ""), "music": s.get("music", [])}
+                         for s in d.get("sections", [])],
+            "key_topics": d.get("key_topics", [])}
+
+
+class CorrectionReq(BaseModel):
+    section: str                      # name_corrections | terminology
+    wrong: str
+    right: str
+
+
+@router.post("/api/programs/{program_id}/correction")
+def program_correction(program_id: str, body: CorrectionReq):
+    """纠错回流：把「错→对」一键写进方案的 name_corrections / terminology。"""
+    from fastapi import HTTPException
+
+    from clip.program_profile import add_mapping
+    try:
+        return add_mapping(program_id, body.section, body.wrong, body.right)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.get("/api/episode_summary")
+def episode_summary(episode_dir: str):
+    """把某期的 05_summary.json 渲染成可读文本，供 few-shot「范例总结」使用。"""
+    p = Path(episode_dir) / "05_summary.json"
+    if not p.exists():
+        return {"error": "该期没有 05_summary.json"}
+    try:
+        d = json.loads(p.read_text("utf-8"))
+    except Exception as e:  # noqa: BLE001
+        return {"error": f"解析失败：{e}"}
+    out = [f"【摘要】{d.get('summary', '')}", ""]
+    for s in d.get("sections", []) or []:
+        head = (s.get("title_ja") or "").strip()
+        tr = (s.get("time_range") or "").strip()
+        out.append(f"■ {head}{('  ['+tr+']') if tr else ''}")
+        if s.get("content"):
+            out.append(s["content"])
+        if s.get("music"):
+            out.append("🎵 " + " / ".join(s["music"]))
+        out.append("")
+    if d.get("key_topics"):
+        out.append("【关键点】" + "；".join(d["key_topics"]))
+    return {"text": "\n".join(out).strip()}
+
+
+@router.get("/api/summary_schema")
+def summary_schema():
+    """产物结构静态预览用：Summary（05_summary.json）的字段骨架 + 说明 + 示例。
+
+    与下游契约一致（schema 不随方案变化，只有内容/长度/侧重变）。
+    """
+    return {
+        "title": "05_summary.json（结构化摘要）",
+        "fields": [
+            {"name": "summary", "type": "string", "note": "整场摘要，受方案 max_summary_chars 限制"},
+            {"name": "sections[]", "type": "array", "note": "按时间顺序的分段复盘", "children": [
+                {"name": "title_ja", "type": "string", "note": "环节/曲目日语原文标题"},
+                {"name": "time_range", "type": "string", "note": "HH:MM:SS-HH:MM:SS（切片依据）"},
+                {"name": "content", "type": "string", "note": "本段具体内容 80-180 字"},
+                {"name": "music[]", "type": "array", "note": "本段日文原曲名（setlist）"},
+                {"name": "member_reactions[]", "type": "array", "note": "成员/本人发言"},
+                {"name": "listener_mail_from / listener_mail", "type": "string", "note": "スパチャ/评论署名与翻译"},
+                {"name": "notes[]", "type": "array", "note": "梗/术语/告知/译注"},
+            ]},
+            {"name": "key_topics[]", "type": "array", "note": "3-6 个关键点，每条一句"},
+            {"name": "highlights[]", "type": "array", "note": "受方案 target_highlight_count 控制（直播多为 0）"},
+        ],
+    }
 
 
 @router.get("/api/interests")
@@ -218,7 +427,10 @@ def record(req: RecordReq):
 
 @router.get("/api/jobs")
 def jobs():
-    return {"jobs": sorted(_jobs.values(), key=lambda j: j["ts"], reverse=True)}
+    # 只回轻量字段（不含庞大的 cues 数组）；kind/range 供前端识别可重新审核的切片预览任务。
+    keep = ("id", "kind", "status", "stage", "error", "url", "range", "ts", "size_mb")
+    out = [{k: j.get(k) for k in keep} for j in _jobs.values()]
+    return {"jobs": sorted(out, key=lambda j: j.get("ts", 0), reverse=True)}
 
 
 # ───────── 手动指定时间轴切片 + 节目报告 ─────────
@@ -596,6 +808,72 @@ def slice_preview_video(job_id: str):
     if not j or not j.get("cut_path") or not Path(j["cut_path"]).exists():
         return {"error": "尚未就绪或不存在"}
     return FileResponse(j["cut_path"], media_type="video/mp4")
+
+
+def _clips_root() -> Path:
+    return clip_config.abspath("./data/clips")
+
+
+@router.get("/api/slice/recoverable")
+def slice_recoverable():
+    """磁盘上已切好但内存任务已丢失（刷新/重启）的预览：可重新打开审核卡。
+
+    一个可恢复预览＝某 clips 子目录同时有 cues.json 和切片视频 clip_00.mp4。
+    """
+    root = _clips_root()
+    out = []
+    if root.exists():
+        for d in sorted(root.iterdir(), key=lambda p: p.stat().st_mtime if p.exists() else 0,
+                        reverse=True):
+            cues_f, cut_f = d / "cues.json", d / "clip_00.mp4"
+            if not (d.is_dir() and cues_f.exists() and cut_f.exists()):
+                continue
+            try:
+                n = len(json.loads(cues_f.read_text("utf-8")))
+            except Exception:  # noqa: BLE001
+                continue
+            m = re.search(r"_(\d+)-(\d+)s_([0-9a-f]+)$", d.name)
+            out.append({"dir": str(d), "name": d.name[:60],
+                        "range": f"{m.group(1)}-{m.group(2)}s" if m else "",
+                        "n_cues": n, "mtime": int(cut_f.stat().st_mtime),
+                        "assembled": (d / "clip_00_final.mp4").exists()})
+    return {"items": out[:30]}
+
+
+class RecoverReq(BaseModel):
+    dir: str
+    program: str | None = None
+
+
+@router.post("/api/slice/recover")
+def slice_recover(req: RecoverReq):
+    """从磁盘目录重建内存预览任务，返回 job_id，前端据此打开审核卡。"""
+    d = Path(req.dir).resolve()
+    root = _clips_root().resolve()
+    if root not in d.parents or not d.is_dir():
+        return {"error": "目录非法"}
+    cues_f, cut_f = d / "cues.json", d / "clip_00.mp4"
+    if not (cues_f.exists() and cut_f.exists()):
+        return {"error": "该目录缺少 cues.json 或切片视频"}
+    try:
+        cues = json.loads(cues_f.read_text("utf-8"))
+    except Exception as e:  # noqa: BLE001
+        return {"error": f"cues.json 解析失败：{e}"}
+    accent = [255, 255, 255]
+    if req.program:
+        try:
+            from clip.program_profile import load_profile
+            accent = list(load_profile(req.program).accent_rgb((255, 255, 255)))
+        except Exception:  # noqa: BLE001
+            pass
+    m = re.search(r"_(\d+)-(\d+)s_([0-9a-f]+)$", d.name)
+    job_id = m.group(3) if m else uuid.uuid4().hex[:8]
+    _jobs[job_id] = {"id": job_id, "kind": "preview", "status": "done",
+                     "stage": "待审核（已从磁盘恢复）", "ts": time.time(),
+                     "range": f"{m.group(1)}-{m.group(2)}s" if m else "",
+                     "cut_path": str(cut_f), "out_dir": str(d), "accent": accent,
+                     "cues": cues, "title_recommendation": None}
+    return {"job_id": job_id}
 
 
 def _run_assemble(job_id: str, cues_data: list[dict]):

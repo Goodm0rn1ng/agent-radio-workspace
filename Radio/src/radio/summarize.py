@@ -142,10 +142,24 @@ def _build_summary_prompt(
         .replace(
             "{target_highlight_count}", str(settings.summary.target_highlight_count)
         )
+        .replace("{summary_style}", settings.summary.summary_style or "（无特别侧重，按通用复盘整理）")
+        .replace("{style_exemplar}", _fmt_style_exemplar(settings.summary.style_exemplar))
         .replace("{terminology}", terminology)
         .replace("{segments_library}", library_text)
         .replace("{recent_history}", recent_history_text)
         .replace("{transcript}", transcript_text)
+    )
+
+
+def _fmt_style_exemplar(text: str) -> str:
+    """few-shot 范例：非空时包成一个带标记的参考块；空则不注入。"""
+    text = (text or "").strip()
+    if not text:
+        return ""
+    return (
+        "\n参考下面这篇范例总结的语气、详略与结构来写本期"
+        "（**只学风格与组织方式，不要照抄其具体内容、人名、曲目**）：\n"
+        "<<<范例\n" + text + "\n范例>>>\n"
     )
 
 

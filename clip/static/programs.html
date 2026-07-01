@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>回声工作台 · 节目方案</title>
+<link rel="stylesheet" href="/static/theme.css">
+<style>
+  :root { --bg:var(--k-bg); --card:var(--k-surface); --line:var(--k-line); --accent:var(--k-acc);
+          --ink:var(--k-ink); --mut:var(--k-mut); }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.6 var(--k-font); background:var(--bg); color:var(--ink); }
+  header { display:flex; align-items:baseline; gap:12px; padding:14px 24px; background:var(--card); border-bottom:1px solid var(--line); }
+  header h1 { font-size:16px; margin:0; font-weight:650; }
+  .wrap { max-width:1100px; margin:0 auto; padding:18px; display:grid; gap:18px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:var(--k-radius); padding:16px; }
+  .card h2 { margin:0 0 12px; font-size:15px; font-weight:650; }
+  label { display:block; font-size:12px; color:var(--mut); margin:8px 0 3px; }
+  input,select { width:100%; padding:8px 10px; border:1px solid var(--k-line-strong); border-radius:8px; font-size:13px;
+                 background:var(--card); color:var(--ink); }
+  textarea { width:100%; padding:8px 10px; border:1px solid var(--k-line-strong); border-radius:8px;
+             background:var(--card); color:var(--ink); font:12px/1.55 var(--k-mono,monospace); resize:vertical; }
+  button { background:var(--accent); color:var(--k-acc-ink); border:0; border-radius:8px; padding:9px 14px; cursor:pointer; font-size:13px; }
+  button:hover { background:var(--k-acc-deep); }
+  button.ghost { background:var(--k-soft); color:var(--ink); border:1px solid var(--line); }
+  button.ghost:hover { background:var(--k-hover); }
+  .mut { color:var(--mut); font-size:12px; }
+  a { color:var(--accent); }
+  .schema { font-size:12.5px; }
+  .schema .f { padding:3px 0; border-bottom:1px dashed var(--line); }
+  .schema .f b { color:var(--accent); } .schema .f .ty { color:var(--mut); font-size:11px; margin-left:4px; }
+  .schema .sub { margin-left:14px; color:var(--mut); }
+  .params { background:var(--k-acc-soft); border-radius:8px; padding:8px 10px; margin:8px 0; font-size:12.5px; }
+  .addbar { background:var(--k-sun-soft); border:1px solid var(--line); }
+  .knobs { display:grid; grid-template-columns:repeat(4,1fr); gap:8px 12px; }
+  .knobs label { margin-top:0; }
+  .row { display:flex; gap:10px; } .row > * { flex:1; }
+  .focusbox { display:flex; flex-wrap:wrap; gap:6px 14px; }
+  .ck { display:inline-flex; align-items:center; gap:5px; font-size:12.5px; color:var(--ink); margin:0; }
+  .ck input { width:auto; }
+  .dr-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .dr-col { border:1px solid var(--line); border-radius:8px; padding:10px; background:var(--k-soft); }
+  .dr-col h4 { margin:0 0 6px; font-size:13px; } .dr-col.after { background:var(--k-acc-soft); }
+  .dr-col .sm { font-size:12.5px; white-space:pre-wrap; }
+  .dr-sec { border-top:1px dashed var(--line); padding:4px 0; font-size:12px; }
+  .dr-sec b { color:var(--accent); } .dr-sec .song { color:var(--k-sun); }
+  @media (max-width:760px){ .knobs{grid-template-columns:repeat(2,1fr);} .dr-grid{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+<nav data-knav="programs"></nav>
+<script src="/static/knav.js" defer></script>
+<header>
+  <h1>节目方案</h1>
+  <span class="mut">每个方案独立掌管总结提示词 / 风格 / 长度参数 · 信息收集 agent 自动拟写草稿</span>
+</header>
+<div class="wrap">
+
+  <!-- 新增方案（信息收集 agent）：置顶 -->
+  <div class="card addbar">
+    <h2>＋ 新增方案（信息收集 agent）</h2>
+    <div class="mut" style="margin-bottom:6px">用自然语言描述：什么形式 / 什么平台 / 什么身份。Agent 会检索 ACG/声优资料站，自动拟写方案草稿到下方供你审改。</div>
+    <textarea id="rs_desc" style="height:74px" placeholder="如：BanG Dream 虚拟乐队夢限大みゅーたいぷ的DJ千石由乃，Live2D VTuber，在 YouTube 直播歌枠和雑談"></textarea>
+    <input id="rs_url" placeholder="频道链接（可选）" style="margin-top:6px">
+    <div style="margin-top:8px">
+      <button onclick="researchDraft()">调研生成草稿</button>
+      <span id="rs_msg" class="mut" style="margin-left:10px"></span>
+    </div>
+    <div id="rs_sources" class="mut" style="margin-top:6px"></div>
+  </div>
+
+  <!-- 方案设置 -->
+  <div class="card">
+    <h2>方案设置
+      <span style="float:right">
+        <select id="pf_select" onchange="loadProfile()" style="width:auto"></select>
+        <button class="ghost" onclick="loadProfile()">重新载入</button>
+      </span></h2>
+    <div class="mut" style="margin-bottom:8px">YAML 逐字保存，保留注释。各方案的总结提示词 / 风格 / 长度互不影响。</div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap">
+      <div style="flex:1 1 480px;min-width:340px">
+        <label>方案 YAML（术语库 / 成员 / 主持人 / 归档等全部字段）</label>
+        <textarea id="pf_yaml" spellcheck="false" style="height:320px"></textarea>
+        <label>总结提示词 summarize.txt <span class="mut">（必须含 {transcript}）</span></label>
+        <textarea id="pf_summary_prompt" spellcheck="false" style="height:170px" oninput="renderPreview()"></textarea>
+        <label>翻译提示词 translate.txt <span class="mut">（可空，留空则不改全局）</span></label>
+        <textarea id="pf_translate_prompt" spellcheck="false" style="height:90px"></textarea>
+        <div style="margin-top:10px">
+          <button onclick="saveProfile()">保存方案</button>
+          <span id="pf_msg" class="mut" style="margin-left:10px"></span>
+        </div>
+      </div>
+      <div style="flex:1 1 360px;min-width:300px">
+        <label>产物结构 / 参数 · 预期效果（05_summary.json）</label>
+        <div id="pf_params" class="params"></div>
+        <div id="pf_schema" class="schema"></div>
+        <div class="mut" style="margin-top:8px">↓ 用下方「风格旋钮 + 试运行」调风格、看真实产物。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 风格旋钮 + 真实试运行 -->
+  <div class="card">
+    <h2>🎚 风格旋钮 + 试运行</h2>
+    <div class="mut" style="margin-bottom:8px">勾几下 → 自动编译成 summary_style → 选一期样片实跑总结看真实效果（改前/改后并排）。</div>
+    <div class="knobs">
+      <div><label>预设</label><select id="k_preset" onchange="applyPreset()">
+        <option value="">自定义</option><option value="karaoke">歌枠二创向</option>
+        <option value="zatsudan">杂谈考据向</option><option value="moe">萌系速览</option>
+        <option value="dokuzetsu">毒舌吐槽</option></select></div>
+      <div><label>语气</label><select id="k_tone" onchange="onKnob()">
+        <option>活泼热闹</option><option>克制简洁</option><option>考据细致</option>
+        <option>萌系可爱</option><option>毒舌吐槽</option></select></div>
+      <div><label>主播称呼（可空）</label><input id="k_call" oninput="onKnob()" placeholder="如 律酱"></div>
+      <div><label>详略</label><select id="k_detail" onchange="onKnob()">
+        <option value="抓重点、略过流水账，只写真正有看点的段落">抓重点</option>
+        <option value="按直播实际推进尽量完整覆盖每个环节">完整覆盖</option></select></div>
+      <div><label>emoji / 网络梗</label><select id="k_emoji" onchange="onKnob()">
+        <option value="">不用</option><option value="少量">少量</option><option value="丰富">丰富</option></select></div>
+      <div><label>目标渠道</label><select id="k_channel" onchange="onKnob()">
+        <option value="">通用复盘</option>
+        <option value="面向B站二创，突出可剪辑的名场面、setlist 与高能段落">B站二创向</option>
+        <option value="面向小红书种草，突出亮点、情绪与反差萌">小红书种草</option>
+        <option value="面向Telegram速览，要点化、简洁">Telegram速览</option></select></div>
+      <div><label>summary 字数上限</label><input id="k_chars" type="number" value="700" oninput="onKnob()"></div>
+      <div><label>highlight 数</label><input id="k_hl" type="number" value="0" oninput="onKnob()"></div>
+    </div>
+    <label style="margin-top:8px">侧重点（勾选）</label>
+    <div id="k_focus" class="focusbox">
+      <label class="ck"><input type="checkbox" class="kf" value="歌枠曲目 setlist（曲名/原作动画，日文原名优先）" onchange="onKnob()" checked> 歌枠setlist</label>
+      <label class="ck"><input type="checkbox" class="kf" value="雑談话题与名场面" onchange="onKnob()" checked> 雑談名场面</label>
+      <label class="ck"><input type="checkbox" class="kf" value="ポンコツ可爱/翻车瞬间" onchange="onKnob()"> ポンコツ瞬间</label>
+      <label class="ck"><input type="checkbox" class="kf" value="与成员/同伴相关的提及" onchange="onKnob()"> 成员·同伴</label>
+      <label class="ck"><input type="checkbox" class="kf" value="告知与企划信息" onchange="onKnob()"> 告知企划</label>
+      <label class="ck"><input type="checkbox" class="kf" value="スパチャ与醒目留言/评论互动" onchange="onKnob()"> SC/评论</label>
+    </div>
+    <label style="margin-top:8px">生成的 summary_style（可手改）</label>
+    <textarea id="gen_style" style="height:96px" oninput="renderPreview()"></textarea>
+    <label style="margin-top:8px">范例总结 few-shot（可空）<span class="mut">— 贴一篇你想要的总结，模型学其语气/结构，不照抄内容</span></label>
+    <textarea id="gen_exemplar" style="height:90px" placeholder="贴一篇范例总结，或从下面所选样片一键载入它的 05 摘要"></textarea>
+    <div style="margin-top:6px">
+      <button class="ghost" onclick="loadExemplarFrom05()">⤵ 从所选样片载入 05 作范例</button>
+    </div>
+    <div style="margin-top:8px">
+      <button class="ghost" onclick="writeStyleToYaml()">写入方案 YAML</button>
+      <span class="mut" style="margin-left:6px">把风格 + 范例 + 参数写进方案（保存后生效）</span>
+    </div>
+    <div style="border-top:1px dashed var(--line);margin-top:12px;padding-top:12px">
+      <div class="row">
+        <div style="flex:2"><label>试运行样片（本方案已归档的期）</label><select id="dr_episode"></select></div>
+        <div style="flex:0 0 auto;display:flex;align-items:flex-end">
+          <button onclick="doDryRun()">▶ 试运行（改前/改后并排）</button></div>
+      </div>
+      <div id="dr_msg" class="mut" style="margin-top:6px"></div>
+      <div id="dr_out" class="dr-grid" style="margin-top:10px"></div>
+    </div>
+  </div>
+
+</div>
+<script>
+const $=s=>document.querySelector(s);
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+async function jget(u){ const r=await fetch(u); return r.json(); }
+async function jpost(u,b){ const r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}); return r.json(); }
+async function jput(u,b){ const r=await fetch(u,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}); return {ok:r.ok, body:await r.json()}; }
+
+let _schema=null;
+function loadList(sel){
+  return jget('/clipper/api/programs').then(d=>{
+    $('#pf_select').innerHTML=(d.programs||[]).map(p=>`<option value="${p.id}">${p.display_name}</option>`).join('')||'<option value="">(无方案)</option>';
+    if(sel) $('#pf_select').value=sel;
+  });
+}
+loadList().then(loadProfile);
+
+async function loadProfile(){
+  const id=$('#pf_select').value; if(!id){ $('#pf_yaml').value=''; return; }
+  $('#pf_msg').textContent='载入中…';
+  const d=await jget('/clipper/api/programs/'+encodeURIComponent(id));
+  if(d.detail){ $('#pf_msg').textContent='✗ '+d.detail; return; }
+  $('#pf_yaml').value=d.yaml_text||'';
+  $('#pf_summary_prompt').value=d.summary_prompt||'';
+  $('#pf_translate_prompt').value=d.translation_prompt||'';
+  $('#pf_msg').textContent=d.summary_prompt_is_custom?'已加载 · 总结提示词为本方案专属':'已加载 · 总结提示词回退全局默认';
+  $('#gen_style').value=_readYamlStyleFull();
+  $('#gen_exemplar').value=d.summary_exemplar||'';
+  $('#k_chars').value=_num(/max_summary_chars:\s*(\d+)/,700);
+  $('#k_hl').value=_num(/target_highlight_count:\s*(\d+)/,0);
+  $('#k_preset').value='';
+  loadDrEpisodes();
+  renderPreview();
+}
+function _num(re,def){ const m=$('#pf_yaml').value.match(re); return m?+m[1]:def; }
+function _summaryStyle(){
+  const all=$('#pf_yaml').value.split('\n');
+  let k=-1; for(let i=0;i<all.length;i++){ if(/^\s*summary_style:/.test(all[i])){ k=i; break; } }
+  if(k<0) return '';
+  const base=all[k].match(/^(\s*)/)[1].length;
+  const out=[];
+  for(let i=k+1;i<all.length;i++){
+    const ln=all[i]; if(ln.trim()===''){ continue; }
+    const ind=ln.match(/^(\s*)/)[1].length;
+    if(ind>base){ out.push(ln.trim()); } else break;
+  }
+  return out.join(' ').slice(0,160);
+}
+async function renderPreview(){
+  if(!_schema) _schema=await jget('/clipper/api/summary_schema');
+  const maxc=_num(/max_summary_chars:\s*(\d+)/,600), hl=_num(/target_highlight_count:\s*(\d+)/,5);
+  const style=_summaryStyle();
+  const hasTr=$('#pf_summary_prompt').value.includes('{transcript}');
+  $('#pf_params').innerHTML=`参数：summary ≤ <b>${maxc}</b> 字 · highlights × <b>${hl}</b>`
+    + (style?`<div class="mut" style="margin-top:4px">侧重：${esc(style)}…</div>`:'<div class="mut" style="margin-top:4px">侧重：无特别侧重（通用复盘）</div>')
+    + (hasTr?'':'<div style="color:var(--k-bad);margin-top:4px">⚠ 总结提示词缺少 {transcript}，保存会被拒绝</div>');
+  const fld=f=>`<div class="f"><b>${f.name}</b><span class="ty">${f.type}</span> — ${esc(f.note)}`
+    + (f.children?`<div class="sub">${f.children.map(c=>`· ${c.name} — ${esc(c.note)}`).join('<br>')}</div>`:'')+'</div>';
+  $('#pf_schema').innerHTML=`<div class="mut" style="margin-bottom:4px">${_schema.title}（结构固定，各方案只变内容/长度/侧重）</div>`
+    + _schema.fields.map(fld).join('');
+}
+async function saveProfile(){
+  const id=$('#pf_select').value; if(!id) return;
+  const sp=$('#pf_summary_prompt').value.trim();
+  if(sp && !sp.includes('{transcript}')){ $('#pf_msg').textContent='✗ 总结提示词必须含 {transcript}'; return; }
+  $('#pf_msg').textContent='保存中…';
+  const r=await jput('/clipper/api/programs/'+encodeURIComponent(id),{
+    yaml_text:$('#pf_yaml').value,
+    summary_prompt:sp||null,
+    translation_prompt:$('#pf_translate_prompt').value.trim()||null,
+  });
+  if(r.ok){ $('#pf_msg').textContent='✅ 已保存'; await loadList(id); }
+  else { $('#pf_msg').textContent='✗ '+((r.body&&r.body.detail)||'保存失败'); }
+}
+function dryRun(){}
+
+async function researchDraft(){
+  const desc=$('#rs_desc').value.trim(); if(!desc){ alert('请填节目描述'); return; }
+  $('#rs_msg').textContent='调研中…（检索+抓取+合成，约 30-60s）';
+  $('#rs_sources').innerHTML='';
+  const r=await jpost('/clipper/api/programs/draft',{description:desc, channel_url:$('#rs_url').value.trim()||null});
+  if(r.detail){ $('#rs_msg').textContent='✗ '+r.detail; return; }
+  const id=r.program_id;
+  if(![...$('#pf_select').options].some(o=>o.value===id)) $('#pf_select').add(new Option(id+'（草稿·未保存）', id));
+  $('#pf_select').value=id;
+  $('#pf_yaml').value=r.yaml_text;
+  $('#pf_summary_prompt').value='';
+  $('#pf_translate_prompt').value='';
+  $('#pf_msg').textContent='草稿就绪，请审改后点「保存方案」';
+  $('#rs_msg').textContent='✅ 完成';
+  $('#rs_sources').innerHTML='来源：'+((r.sources||[]).map(s=>`<a href="${esc(s.url)}" target="_blank">${esc(s.source)}</a>`).join(' · ')||'(无)')+(r.notes?` · ⚠ ${esc(r.notes)}`:'');
+  $('#gen_style').value=_readYamlStyleFull();
+  $('#k_chars').value=_num(/max_summary_chars:\s*(\d+)/,700);
+  $('#k_hl').value=_num(/target_highlight_count:\s*(\d+)/,0);
+  loadDrEpisodes();
+  renderPreview();
+  $('#pf_select').scrollIntoView({behavior:'smooth'});
+}
+
+// ===== ② 风格旋钮 =====
+function _readYamlStyleFull(){
+  const all=$('#pf_yaml').value.split('\n');
+  let k=all.findIndex(l=>/^\s*summary_style:/.test(l)); if(k<0) return '';
+  const base=all[k].match(/^(\s*)/)[1].length; const out=[];
+  for(let i=k+1;i<all.length;i++){ const ln=all[i];
+    if(ln.trim()===''){ if(out.length) out.push(''); continue; }
+    const ind=ln.match(/^(\s*)/)[1].length;
+    if(ind>base) out.push(ln.slice(base+2)); else break; }
+  return out.join('\n').trim();
+}
+function compileStyle(){
+  const tone=$('#k_tone').value, call=$('#k_call').value.trim(), detail=$('#k_detail').value;
+  const emoji=$('#k_emoji').value, channel=$('#k_channel').value;
+  const foci=[...document.querySelectorAll('.kf:checked')].map(c=>c.value);
+  const out=[`以「${tone}」的语气总结${call?('，主播称作「'+call+'」'):''}。`];
+  if(foci.length) out.push('重点抓取：'+foci.map((f,i)=>(i+1)+') '+f).join('；')+'。');
+  out.push(detail+'。');
+  if(channel) out.push(channel+'。');
+  if(emoji) out.push('适度使用'+emoji+' emoji / 网络梗。');
+  return out.join('\n');
+}
+function onKnob(){ $('#k_preset').value=''; $('#gen_style').value=compileStyle(); renderPreview(); }
+const PRESETS={
+  karaoke:{tone:'活泼热闹',detail:'抓重点、略过流水账，只写真正有看点的段落',emoji:'少量',channel:'面向B站二创，突出可剪辑的名场面、setlist 与高能段落',chars:700,hl:0,focus:['歌枠曲目 setlist（曲名/原作动画，日文原名优先）','雑談话题与名场面','ポンコツ可爱/翻车瞬间']},
+  zatsudan:{tone:'考据细致',detail:'按直播实际推进尽量完整覆盖每个环节',emoji:'',channel:'',chars:900,hl:0,focus:['雑談话题与名场面','与成员/同伴相关的提及','告知与企划信息']},
+  moe:{tone:'萌系可爱',detail:'抓重点、略过流水账，只写真正有看点的段落',emoji:'丰富',channel:'面向小红书种草，突出亮点、情绪与反差萌',chars:500,hl:0,focus:['ポンコツ可爱/翻车瞬间','雑談话题与名场面']},
+  dokuzetsu:{tone:'毒舌吐槽',detail:'抓重点、略过流水账，只写真正有看点的段落',emoji:'少量',channel:'',chars:600,hl:0,focus:['ポンコツ可爱/翻车瞬间','雑談话题与名场面']},
+};
+function applyPreset(){
+  const p=PRESETS[$('#k_preset').value]; if(!p) return;
+  $('#k_tone').value=p.tone; $('#k_detail').value=p.detail; $('#k_emoji').value=p.emoji;
+  $('#k_channel').value=p.channel; $('#k_chars').value=p.chars; $('#k_hl').value=p.hl;
+  document.querySelectorAll('.kf').forEach(c=>{ c.checked=p.focus.includes(c.value); });
+  $('#gen_style').value=compileStyle(); renderPreview();
+}
+function _blockOf(key,text,indent){
+  const ind=' '.repeat(indent), ind2=' '.repeat(indent+2);
+  return [ind+key+': |'].concat(text.split('\n').map(l=>l.trim()===''?'':ind2+l));
+}
+function _upsertProcBlock(lines,key,text){           // 在 processing 下插入/替换块标量 key
+  const k=lines.findIndex(l=>new RegExp('^\\s*'+key+':').test(l));
+  if(k>=0){
+    const base=lines[k].match(/^(\s*)/)[1].length;
+    let end=k+1;
+    while(end<lines.length){ const ln=lines[end]; if(ln.trim()===''||ln.match(/^(\s*)/)[1].length>base){ end++; } else break; }
+    lines.splice(k,end-k,..._blockOf(key,text,base));
+    return lines;
+  }
+  // 不存在：插到 summary_style 块之后；没有则插到 processing: 之后
+  let at=lines.findIndex(l=>/^\s*summary_style:/.test(l)), base=2;
+  if(at>=0){ base=lines[at].match(/^(\s*)/)[1].length;
+    let e=at+1; while(e<lines.length){ const ln=lines[e]; if(ln.trim()===''||ln.match(/^(\s*)/)[1].length>base){ e++; } else break; } at=e-1;
+  } else { at=lines.findIndex(l=>/^processing:\s*$/.test(l)); if(at<0) return lines; }
+  lines.splice(at+1,0,..._blockOf(key,text,base));
+  return lines;
+}
+function writeStyleToYaml(){
+  let lines=$('#pf_yaml').value.split('\n');
+  const style=$('#gen_style').value.trim();
+  if(style){
+    if(lines.findIndex(l=>/^\s*summary_style:/.test(l))<0){ alert('方案 YAML 里没有 processing.summary_style，请先在 YAML 中加一行「  summary_style: |」'); return; }
+    lines=_upsertProcBlock(lines,'summary_style',style);
+  }
+  const ex=$('#gen_exemplar').value.trim();
+  if(ex) lines=_upsertProcBlock(lines,'summary_exemplar',ex);
+  let yaml=lines.join('\n');
+  const ch=+$('#k_chars').value, hl=+$('#k_hl').value;
+  if(/max_summary_chars:\s*\d+/.test(yaml)) yaml=yaml.replace(/max_summary_chars:\s*\d+/, 'max_summary_chars: '+ch);
+  if(/target_highlight_count:\s*\d+/.test(yaml)) yaml=yaml.replace(/target_highlight_count:\s*\d+/, 'target_highlight_count: '+hl);
+  $('#pf_yaml').value=yaml; renderPreview();
+  $('#pf_msg').textContent='已写入 风格/范例/参数 — 记得点「保存方案」';
+}
+
+// ===== ③ few-shot 范例 =====
+async function loadExemplarFrom05(){
+  const ep=decodeURIComponent($('#dr_episode').value||''); if(!ep){ alert('请先在下方选样片'); return; }
+  const d=await jget('/clipper/api/episode_summary?episode_dir='+encodeURIComponent(ep));
+  if(d.error){ alert('✗ '+d.error); return; }
+  $('#gen_exemplar').value=d.text||'';
+}
+
+// ===== ① 真实试运行 =====
+async function loadDrEpisodes(){
+  const prog=$('#pf_select').value, sel=$('#dr_episode');
+  if(!prog){ sel.innerHTML='<option value="">(无)</option>'; return; }
+  const d=await jget('/clipper/api/episodes?program='+encodeURIComponent(prog));
+  sel.innerHTML=(d.episodes||[]).map(e=>`<option value="${encodeURIComponent(e.episode_dir)}">${esc(e.name.slice(0,46))}${e.has_summary?'':' (无05)'}</option>`).join('')||'<option value="">(该方案暂无样片)</option>';
+}
+async function doDryRun(){
+  const ep=decodeURIComponent($('#dr_episode').value||''); if(!ep){ alert('请选样片'); return; }
+  const prog=$('#pf_select').value;
+  $('#dr_msg').textContent='实跑中…（Gemini 总结，约 40-60s，改前/改后并行）';
+  $('#dr_out').innerHTML='';
+  const hl=$('#k_hl').value!==''?+$('#k_hl').value:null;
+  const after={program:prog, episode_dir:ep, summary_prompt:$('#pf_summary_prompt').value.trim()||null,
+    summary_style:$('#gen_style').value.trim()||null, style_exemplar:$('#gen_exemplar').value.trim()||null,
+    max_summary_chars:+$('#k_chars').value||null, target_highlight_count:hl};
+  const before={program:prog, episode_dir:ep};
+  try{
+    const [a,b]=await Promise.all([jpost('/clipper/api/programs/dryrun',after), jpost('/clipper/api/programs/dryrun',before)]);
+    $('#dr_out').innerHTML=renderDryCol('改前（已保存方案）',b,false)+renderDryCol('改后（当前草稿 / 风格）',a,true);
+    $('#dr_msg').textContent='✅ 完成 · 模型 '+(a.model||b.model||'');
+  }catch(e){ $('#dr_msg').textContent='✗ 试运行出错：'+e; }
+}
+function renderDryCol(title,d,after){
+  if(!d||d.detail) return `<div class="dr-col${after?' after':''}"><h4>${title}</h4><div class="mut" style="color:#c33">✗ ${esc(d&&d.detail||'失败')}</div></div>`;
+  const secs=(d.sections||[]).map(s=>`<div class="dr-sec"><b>${esc(s.title_ja)}</b> <span class="mut">${esc(s.time_range)}</span>${(s.music&&s.music.length)?` <span class="song">🎵${s.music.map(esc).join('/')}</span>`:''}<div>${esc(s.content)}</div></div>`).join('');
+  return `<div class="dr-col${after?' after':''}"><h4>${esc(title)}</h4>
+    <div class="sm"><b>摘要</b>（${(d.summary||'').length}字）：${esc(d.summary)}</div>
+    <div style="margin-top:6px"><b style="font-size:12px">分段（${(d.sections||[]).length}）</b>${secs}</div>
+    ${(d.key_topics&&d.key_topics.length)?`<div style="margin-top:6px"><b style="font-size:12px">关键点</b><div class="mut">${d.key_topics.map(esc).join('；')}</div></div>`:''}</div>`;
+}
+</script>
+</body>
+</html>

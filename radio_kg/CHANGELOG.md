@@ -2,7 +2,82 @@
 
 本项目所有功能性的完善与新增都记录于此。日期为开发日期 (YYYY-MM-DD)。
 
-## 修复 clip 入库污染全局致 Telegram 静默不推送 + 合并 feat/qa-trends-databoard（数据看板归位）— 2026-06-17
+## 节目方案：few-shot 范例驱动 + 纠错回流 — 2026-06-17
+
+### Added｜④ 纠错回流：审核字幕时一键把「错→对」写回方案
+- `clip/clip/program_profile.py` 加 `add_mapping`（+ `_yaml_upsert_mapping`）：在方案 YAML 的 `name_corrections` / `terminology` 映射块内插入或就地更新键值，**保留注释**、必要时给含 `#`/`:` 等特殊字符的值加引号、写后再 `safe_load` 校验、原子写；块不存在则在 `processing` 下新建。
+- `clip/clip/server_routes.py` 加 `POST /clipper/api/programs/{id}/correction`；`clip/static/clipper.html` 审核卡（④′）加「错→对 + 类型」小表单，一键写回当前方案——专名越用越准，治本于源头。
+
+### Added｜③ few-shot 范例：贴一篇想要的总结，让模型照着写
+- Radio 侧加 `{style_exemplar}` 槽：`SummaryConfig.style_exemplar` + `_build_summary_prompt._fmt_style_exemplar`（非空才包成带标记的参考块，注明只学风格不照抄），并在全局 summarize.txt / `_live_summarize.txt` / minetsuki 模板插槽。
+- clip 侧：节目方案加 `processing.summary_exemplar`（program_profile 读取、profile_detail 回传、kb_ingest 注入 `settings.summary.style_exemplar`）；`/dryrun` 接受 `style_exemplar`；新增 `GET /clipper/api/episode_summary`（把某期 05_summary.json 渲染成可读文本作范例）。
+- `programs.html` 风格卡加「范例总结 few-shot」textarea + 「从所选样片载入 05 作范例」；试运行吃这套范例，「写入方案 YAML」用通用块标量 upsert 同时写回 summary_style + summary_exemplar + 参数。
+
+## 节目方案：风格旋钮 + 真实试运行（改前/改后并排）— 2026-06-17
+
+### Added｜真实试运行：选样片实跑总结，并排对比改前/改后
+- 把占位的「试运行」接成真功能。`clip/clip/server_routes.py` 加 `POST /clipper/api/programs/dryrun`：用（可能未保存的）草稿设置在选定样片上实跑 `radio.summarize`，返回真实 `Summary`（无副作用：临时提示词写 temp、`auto_append_new_segments=False`）。
+- `programs.html`：选本方案已归档的一期 → 一键并行跑「改前(已保存方案)」与「改后(当前草稿/风格)」→ 两栏并排展示真实摘要 + 分段(含 setlist) + 关键点。实测同一歌枠期，改前为「笨笨呆萌」口吻、改后切到「毒舌吐槽」且字数贴合所设上限。
+
+### Added｜风格旋钮面板：勾几下编译成 summary_style
+- `programs.html` 新增「🎚 风格旋钮 + 试运行」卡：语气 / 主播称呼 / 详略 / emoji / 目标渠道 / 字数上限 / highlight 数 + 侧重点勾选 + 预设（歌枠二创向 / 杂谈考据向 / 萌系速览 / 毒舌吐槽），实时编译成 `summary_style` 文本（可手改）。
+- 「写入方案 YAML」把生成的风格写回 `summary_style` 块（块标量替换，保留其余字段/注释）+ 同步 `max_summary_chars`/`target_highlight_count`，保存后生效；试运行直接吃这套风格，形成「勾旋钮 → 试运行 → 看效果 → 写回保存」闭环。
+
+## 节目方案升为顶层页面（与数据看板并列）— 2026-06-17
+
+### Changed｜「节目方案」从 /clipper 卡片 ⑥ 独立为顶层导航页
+- `radio_kg/src/server/static/knav.js` 全局导航加 `节目方案 → /clipper/programs`（位于「直播切片」与「数据看板」之间）。
+- 新增 `clip/static/programs.html`（独立页）：**「＋ 新增方案（信息收集 agent）」置顶**，其下为方案选择 + YAML/提示词编辑 + 产物结构预览；`clip/clip/server_routes.py` 加路由 `GET /clipper/programs`。
+- `clip/static/clipper.html` 移除原卡片 ⑥ 及其 JS，`loadProgramList` 不再填充已迁走的下拉。
+
+## clip 切片预览：磁盘恢复 + 二次精听治本提速 — 2026-06-17
+
+### Added｜从磁盘恢复已切预览（救回跨刷新/重启丢失的审核任务）
+- 内存任务表会被服务重启清空，切好的 cues.json + clip_00.mp4 虽在磁盘却够不着。
+- `clip/clip/server_routes.py` 新增 `GET /clipper/api/slice/recoverable`（扫描 `data/clips` 下同时有 cues.json 与 clip_00.mp4 的目录）与 `POST /clipper/api/slice/recover`（按目录重建内存预览任务，路径穿越校验、可带 program 取正确应援色）。
+- `clip/static/clipper.html` 手动切片卡加「🔁 恢复已切预览」：列出可恢复预览，点「▸ 审核 / 切片」重建任务并打开审核卡（视频从磁盘 FileResponse、69 句 cue 实测可载）。
+
+### Performance｜二次精听慢的真因不是 ASR，是 LLM 断句的「重试风暴」
+- 诊断：实测某 7 分钟谈话切片耗时 ~21 分钟。Parakeet-mlx ASR 仅 ~0.14× 实时（30s→4.3s），并非瓶颈。真因在 `clip/clip/lyrics.py` 的 LLM 断句：选了 deepseek（`force_llm_retranslate→require_llm_segmentation`）时，单次「整段」断句失败便进入 `_llm_segment_ranges_chunked` 的**递归拆半**，每层各 5 次重试，deepseek 对该结构化任务又不稳，滚成几十次慢调用＝20+ 分钟；且无快速退路。
+- 修复（治本）：断句重试 5→2；去掉递归拆半（分块失败即放弃 LLM 断句）；`_talk_cues_from_words` 失败时退回快速的**停顿断句**而非死等/报错。译文修复（`_repair_talk_zh`，批量重译）是独立步骤，不受影响——用户选的 LLM 仍用于重译，质量不变。默认（Claude）断句路径行为不变。
+- 实测：同一 443s 切片 21 分钟 → **141s**（约 9×）；最坏情况（断句失败）由 20+ 分钟收敛到 ~2-3 分钟后退回停顿断句。
+
+## 修复 clip 手动切片预览完成后「审核界面不出现」— 2026-06-17
+
+### Fixed｜切片预览跑完后审核卡丢失、无法重新打开
+- 现象：手动切片任务显示「done · 待审核 · LLM deepseek」，但没有出现能逐句审核/切片的界面。
+- 根因：`_run_preview` 后端**正常完成**（cues.json + 切好的 clip 已落盘，status=done、57 句 cue 就绪），但前端审核卡（④′）只能由 `pollPreview` 的实时轮询循环打开。二次精听（whisperx）极慢——实测一段 7 分钟片段跑了 ~21 分钟（21:01 出 clip、21:21 出 cues.json）；期间用户刷新/离开页面，`pvJob`（JS 变量）丢失，轮询从此停止（日志佐证：该任务仅 1 次轮询 vs 正常任务 182 次），任务在后台跑完也无界面接住。用户看到的「done 待审核」来自 `/api/jobs` 列表（`pollJobs`），那里此前不可点。
+- 修复：`/clipper/api/jobs` 改回轻量字段并带上 `kind`/`range`；前端 `pollJobs` 给「已完成的切片预览」任务渲染「▸ 审核 / 切片」链接，点击 `reopenPreview(id)` 重新载入 cues + 视频到审核卡。刷新/离开页面后只要服务未重启（任务仍在内存）即可重新接上。
+- 已知边界：服务重启会清空内存任务表（cues.json 仍在磁盘，但「从磁盘恢复预览」未实现）；二次精听本身过慢是另一独立优化点。
+
+## clip 信息收集 agent：自然语言 → 自动拟写节目方案草稿（Part 2）— 2026-06-17
+
+### Added｜本地 firecrawl 式 `profile_research`：抓 ACG/声优资料站合成方案草稿
+- 痛点：新 VTuber 节目方案里庞大的 `terminology`/`name_corrections`/`members`/`summary_style`（曲名、成员、应援色、tag、粉丝名、口癖——正是 ASR 幻听/翻译错写/KG 实体错挂的根源）全靠手工调研，每个要数小时。
+- 新增 `clip/clip/profile_research.py`：用户自然语言描述（形式/平台/身份）→ LLM 解析检索名 → 抓取 curated 资料站 → `LLMClient` 合成 ProgramProfile 草稿（字段与 `programs/<id>.yaml` 1:1），**不落盘**回前端供人审改。无新依赖、无外部 API key。
+  - 取数两路：Fandom 走 `api.php`（search→parse，稳）；萌娘百科/维基走直取渲染页 `/wiki/<title>`（萌娘禁 parse-api、维基对数据中心 IP 限流），命中阈值过滤反爬 stub；任一源失败静默跳过。HTML 用标准库 `html.parser` 清成纯文本。以现成 `minetsuki_ritsu.yaml` 作结构范例，同组合还能收敛组合级术语/译名。
+- `clip/clip/server_routes.py`：`POST /clipper/api/programs/draft`（描述 → 草稿 yaml + 来源）。
+- `clip/static/clipper.html`：方案面板加「＋ 新增方案（信息收集 agent）」——自然语言输入 → 调研 → 草稿填入左侧编辑区 → 审改后保存。
+- 新增 `clip/clip/programs/_live_summarize.txt`（共享 VTuber 直播总结模板），agent 给新直播节目默认指向它；`save_profile` 拒绝覆盖 `_` 前缀共享模板。
+
+### Verified｜千石由乃（夢限大みゅーたいぷ DJ）端到端验证
+- 跑 agent 生成草稿，逐项对照官方源核验后**全部命中**：YouTube 频道 `@yuno_yumemita`（真实）、4 个官方 tag（`#みてユノ`/`#ユノの生存報告`/`#ユノ展`/`#ユノちとヴァンガード`，对照官方 X bio）、DJ & Manipulator、5 人成员名册与应援色、团曲 terminology（与既有 minetsuki 收敛、峰月律色 `#4477CC` 一致）。两次运行关键事实稳定。
+- 落地 `clip/clip/programs/sengoku_yuno.yaml`，`load_profile` + `_settings_with_profile_translation` 验证为可直接使用的方案（总结指向共享直播模板、summary_style 注入、参数生效）。
+
+## clip 节目方案独立总结 + /clipper 方案设置面板（Part 1）— 2026-06-17
+
+### Added｜每个 clip 节目方案独立掌管自己的总结提示词 / 风格 / 长度参数
+- 此前直播切片（Branch B）的总结完全复用全局 `summarize.txt`（声优广播/来信/常驻环节口径，对 VTuber 歌枠/雑談不合适）与全局 `SummaryConfig`；节目方案里的 `summary_style` 是**死配置**（加载了但无人消费）。
+- `Radio/src/radio/config.py`：`SummaryConfig` 增 `summary_style`；`summarize.py` 的 `_build_summary_prompt` 注入新占位符 `{summary_style}`，`prompts/summarize.txt` 加「本节目总结侧重」槽（空＝注入兜底文案，行为与改前等价）。
+- `clip/clip/program_profile.py`：`ProgramProfile` 增 `summary_prompt_path` / `summary_max_chars` / `summary_highlight_count`（读 yaml `processing.summary_prompt_path` 与 `processing.summary:` 块）。
+- `clip/clip/kb_ingest.py`：`_settings_with_profile_translation` 现也覆盖 `settings.summary`（prompt_path / max_summary_chars / target_highlight_count / summary_style）；沿用同函数既有的进程内 settings copy，不污染全局（monkeypatch 还原仍走 `_transcribe_and_summarize` 的 try/finally）。
+- 新增 `clip/clip/programs/minetsuki_ritsu_summarize.txt`（VTuber 直播/歌枠口径：歌枠每曲单独成 section + music 列日文原曲名作 setlist、雑談名场面、ポンコツ瞬间），yaml 加 `summary_prompt_path` + `summary` 参数块（max 700 / highlight 0）。
+- 验证：对真实歌枠期（2025-09-13）实跑 Gemini 总结——产出仍是合规 `Summary`（schema 不变：summary/sections/key_topics/highlights），但风格切到直播口径，6 首曲目各自成段带 `music`/`time_range`，summary 393 字（≤700）、highlights 0。下游入库零改。
+
+### Added｜`/clipper` 新增「⑥ 节目方案设置」面板 + 产物结构静态预览
+- `clip/clip/program_profile.py` 增 `profile_detail()` / `save_profile()`（id 正则校验、yaml 逐字保存保留注释、自带 summarize.txt 必含 `{transcript}`、原子写）。
+- `clip/clip/server_routes.py` 增 `GET/PUT /clipper/api/programs/{id}` 与 `GET /clipper/api/summary_schema`。
+- `clip/static/clipper.html` 增方案面板：列表 + 全字段 YAML 编辑 + 总结/翻译提示词 textarea + 保存；右侧零成本静态预览（按当前方案参数渲染 05_summary.json 字段骨架 + 长度/highlight/侧重），`[试运行]` 按钮占位。
 
 ### Fixed｜clip 的 `_transcribe_and_summarize` monkeypatch 泄漏到同进程的正常录制 pipeline
 - 现象：正常录制 pipeline `Pipeline 完成 ✅` 但无任何 Telegram 推送日志、无 handoff；metrics `send_to_telegram` 步骤仅 ~10µs、`telegram_messages_sent` 仍记 3（事后估算值），凭据/网络实测正常。
