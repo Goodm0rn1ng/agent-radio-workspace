@@ -41,3 +41,8 @@ members = ["Radio", "clip"]
 [tool.uv.sources]
 radio-oshikatsu = { workspace = true }
 clip = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+]
