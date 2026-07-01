@@ -39,6 +39,8 @@ radio_kg/data/clips/
 radio_kg/data/scorecard_*.json
 radio_kg/data/eval_qa20_*.json
 radio_kg/data/index_version.json
+radio_kg/data/project_metrics_*
+radio_kg/data/test_metrics_run/
 
 # clip 运行产物（成片/任务状态）与独立 ASR venv
 clip/data/
