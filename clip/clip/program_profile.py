@@ -226,7 +226,17 @@ def _yaml_upsert_mapping(text: str, section: str, key: str, value: str) -> str:
     hi = next((i for i, l in enumerate(lines)
                if re.match(rf"^(\s*){re.escape(section)}:\s*$", l)), -1)
     qk, qv = _yaml_quote(key), _yaml_quote(value)
-    if hi < 0:                                   # 块不存在：在 processing: 下新建
+    if hi < 0:                                   # 块（块级映射写法）不存在
+        # 空段常被 yaml.safe_dump 序列化成内联空映射 `section: {}`（信息收集
+        # agent 生成的草稿即如此）。若在别处盲目新建同名块，会产生重复键，
+        # 后出现的 `{}` 在 PyYAML 解析时静默覆盖刚写入的内容——原地转换为块级映射。
+        empty_i = next((i for i, l in enumerate(lines)
+                        if re.match(rf"^(\s*){re.escape(section)}:\s*\{{\}}\s*$", l)), -1)
+        if empty_i >= 0:
+            base = len(lines[empty_i]) - len(lines[empty_i].lstrip())
+            lines[empty_i] = " " * base + f"{section}:"
+            lines.insert(empty_i + 1, " " * (base + 2) + f"{qk}: {qv}")
+            return "\n".join(lines)
         pi = next((i for i, l in enumerate(lines) if re.match(r"^processing:\s*$", l)), -1)
         entry = f"  {section}:\n    {qk}: {qv}"
         lines.insert(pi + 1 if pi >= 0 else len(lines), entry)
