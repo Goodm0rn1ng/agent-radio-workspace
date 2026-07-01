@@ -251,6 +251,11 @@ def _translate_missing(cues: list[Cue], llm: LLMClient) -> None:
 
 
 _TRANSLATE_TEMPLATE_CACHE: dict[str, str | None] = {}
+_SUBTITLE_TRANSLATION_RULES = (
+    "这是短视频硬字幕翻译：每个 zh 必须只对应同一条 ja，不能合并相邻句，不能补充解释。"
+    "译文要口语、短促、适合屏幕阅读；尽量 12-24 个中文字，最长不超过 32 个中文字。"
+    "如果直译过长，请压缩成自然短句，保留核心意思。"
+)
 
 
 def _load_translate_template(path: str | Path | None = None) -> str | None:
@@ -307,7 +312,8 @@ def translate_lines(
             data = llm.complete_json(
                 system,
                 "请先整体阅读 input_json 中的全部句子，理解上下文、指代、倒装和 ASR 可能错字；"
-                "prev_zh 只是旧译参考，必须以 ja 为准重新逐句翻译。请严格按上述格式只输出 JSON。",
+                "prev_zh 只是旧译参考，必须以 ja 为准重新逐句翻译。"
+                f"{_SUBTITLE_TRANSLATION_RULES}请严格按上述格式只输出 JSON。",
                 max_tokens=8192,
             )
             segs = data.get("segments", []) if isinstance(data, dict) else []
@@ -328,6 +334,7 @@ def translate_lines(
             data = llm.complete_json(
                 "先整体阅读下列短片字幕，理解上下文、指代、省略主语、倒装和 ASR 同音错字；"
                 "再把日文逐行翻译成自然的简体中文。旧译参考只能辅助理解，必须以日文为准。"
+                f"{_SUBTITLE_TRANSLATION_RULES}"
                 '严格输出 JSON: {"lines": ["第1行中文", ...]}，顺序与数量一致。',
                 numbered, max_tokens=8192,
             )

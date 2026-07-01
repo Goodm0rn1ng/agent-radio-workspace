@@ -24,7 +24,12 @@ _CHAT_MARKERS = (
     "ありがとう", "ありがと", "コメント", "スパチャ", "ですね", "じゃあ", "次",
     "みんな", "皆さん", "思う", "思って", "本当に", "すごい", "最高", "見たい",
     "ガルパ", "音ゲー", "ゲーム", "カバー", "ください", "でした", "おかえり",
+    "これ", "なんか", "多分", "なので", "けど", "っていう", "使", "買",
+    "円", "商品", "おすすめ", "美容", "メイク", "スキンケア", "髪", "匂い",
+    "におい", "香り", "シャンプー", "香水", "スプレー", "男の子", "女の子",
+    "ドラッグストア", "イベント", "推し",
 )
+_GENERIC_SONG_TITLES = {"", "歌", "歌曲", "song", "songs"}
 _POST_SONG_TALK_MARKERS = ("これは", "平成", "ガルパ", "音ゲー", "スパチャ")
 _TITLE_ALIASES = {
     "thisgame": ("ディスゲーム", "ディス ゲーム", "thisgame"),
@@ -239,6 +244,8 @@ def _infer_with_llm(lines: list[Cue], hints: list[SongSpan], duration: float, ll
         if _talk_density(lines, st, en) > 0.45:
             continue
         title = (item.get("title") or "").strip() or _pick_title("", hints)
+        if not _has_song_evidence(lines, st, en, hints, title):
+            continue
         artist = (item.get("artist") or "").strip() or _artist_for_title(title, hints)
         out.append(_RelSong(st, en, title or "歌曲", artist or None))
     return out
@@ -267,7 +274,8 @@ def _infer_with_heuristics(lines: list[Cue], hints: list[SongSpan], duration: fl
             break
         st = lines[start_idx].start
         en = lines[end_idx].end
-        if en - st >= 8.0 and _talk_density(lines, st, en) <= 0.55:
+        if (en - st >= 8.0 and _talk_density(lines, st, en) <= 0.55
+                and _has_song_evidence(lines, st, en, hints, title)):
             out.append(_RelSong(st, min(en, duration), title or "歌曲", _artist_for_title(title, hints)))
         i = max(end_idx + 1, start_idx + 1)
     return out
@@ -378,9 +386,9 @@ def _is_songish(text: str) -> bool:
         return False
     if any(m in s for m in _START_MARKERS):
         return False
-    if _is_chat(s) and not _looks_like_lyric(s):
+    if _is_chat(s):
         return False
-    return True
+    return _looks_like_lyric(s)
 
 
 def _looks_like_lyric(text: str) -> bool:
@@ -394,7 +402,45 @@ def _talk_density(lines: list[Cue], start: float, end: float) -> float:
     inside = [c for c in lines if c.end > start and c.start < end]
     if not inside:
         return 0.0
-    return sum(1 for c in inside if _is_chat(c.ja) and not _looks_like_lyric(c.ja)) / len(inside)
+    return sum(1 for c in inside if _is_chat(c.ja)) / len(inside)
+
+
+def _has_song_evidence(
+    lines: list[Cue],
+    start: float,
+    end: float,
+    hints: list[SongSpan],
+    title: str,
+) -> bool:
+    inside = [c for c in lines if c.end > start and c.start < end]
+    if not inside:
+        return False
+    if any(any(m in (c.ja or "") for m in _START_MARKERS) for c in inside):
+        return True
+    if any(_pick_title(c.ja, hints, require_match=True) for c in inside):
+        return True
+    if _title_matches_hint(title, hints):
+        return True
+    streak = 0
+    for c in inside:
+        if _is_songish(c.ja):
+            streak += 1
+            if streak >= 4 and _talk_density(inside, start, end) <= 0.30:
+                return True
+        else:
+            streak = 0
+    return False
+
+
+def _title_matches_hint(title: str, hints: list[SongSpan]) -> bool:
+    key = _norm(title)
+    if not key or key in {_norm(x) for x in _GENERIC_SONG_TITLES}:
+        return False
+    for hint in hints:
+        other = _norm(hint.title)
+        if other and (key == other or key in other or other in key):
+            return True
+    return False
 
 
 def _pick_title(text: str, hints: list[SongSpan], *, require_match: bool = False) -> str:
